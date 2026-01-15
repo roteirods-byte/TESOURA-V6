@@ -14,6 +14,16 @@
     button{ padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.10); color:var(--text); cursor:pointer; font-weight:700; }
     h1{ margin:0 0 10px 0; color:var(--accent); }
     .list{ margin-top:12px; font-family:monospace; font-size:13px; white-space:pre-wrap; }
+    @media print{
+  .row, button, input, select { display:none !important; }
+  .wrap{ padding:0 !important; }
+  .card{ border:none !important; }
+  h1{ color:#000 !important; }
+  #status{ color:#000 !important; }
+  #list{ color:#000 !important; }
+  body{ background:#fff !important; color:#000 !important; }
+}
+
   </style>
 </head>
 <body>
@@ -32,7 +42,7 @@
     <option value="">HISTÓRICO (selecione)</option>
   </select>
   <button id="btnHistAtualizar">ATUALIZAR HISTÓRICO</button>
-  
+
   <button id="btnPdf">BAIXAR PDF (ATUAL)</button>
 </div>
 
@@ -93,6 +103,8 @@ async function carregarDoHistorico(){
 
     document.getElementById("btnCarregar").onclick = carregar;
     document.getElementById("btnSalvar").onclick = salvar;
+    document.getElementById("btnPdf").onclick = () => window.print();
+
   </script>
 document.getElementById("btnCarregar").onclick = carregar;
 document.getElementById("btnSalvar").onclick = salvar;
