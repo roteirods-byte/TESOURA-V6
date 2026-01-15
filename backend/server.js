@@ -2,6 +2,20 @@ const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const Database = require("better-sqlite3");
+const { saveSnapshot, listSnapshots, loadSnapshot } = require("./modules/_core/archive");
+
+const ALLOWED_PANELS = new Set([
+  "jogadores",
+  "presenca_escalacao",
+  "controle_geral",
+  "mensalidade",
+  "caixa",
+  "gols"
+]);
+
+function mustBeAllowedPanel(panel) {
+  return ALLOWED_PANELS.has(panel);
+}
 
 const app = express();
 app.use(cors());
@@ -107,6 +121,42 @@ app.get("/api/presencas", (req, res) => {
     .prepare("SELECT * FROM presencas WHERE data_domingo=? ORDER BY hora_chegada")
     .all(data_domingo);
   res.json(rows);
+});
+// --- HISTÓRICO (por painel) ---
+// Salvar snapshot do estado atual (JSON)
+app.post("/api/:panel/salvar", (req, res) => {
+  const panel = String(req.params.panel || "").trim();
+  if (!mustBeAllowedPanel(panel)) {
+    return res.status(400).json({ ok: false, error: "Painel inválido" });
+  }
+  const payload = req.body || {};
+  const out = saveSnapshot(panel, payload);
+  res.json({ ok: true, ref: out.ref });
+});
+
+// Listar snapshots anteriores (para o filtro do painel)
+app.get("/api/:panel/historico", (req, res) => {
+  const panel = String(req.params.panel || "").trim();
+  if (!mustBeAllowedPanel(panel)) {
+    return res.status(400).json({ ok: false, error: "Painel inválido" });
+  }
+  const items = listSnapshots(panel);
+  res.json({ ok: true, items });
+});
+
+// Carregar snapshot anterior (por ref)
+app.get("/api/:panel/carregar", (req, res) => {
+  const panel = String(req.params.panel || "").trim();
+  const ref = String(req.query.ref || "").trim();
+  if (!mustBeAllowedPanel(panel)) {
+    return res.status(400).json({ ok: false, error: "Painel inválido" });
+  }
+  if (!ref) {
+    return res.status(400).json({ ok: false, error: "Faltou ref" });
+  }
+  const data = loadSnapshot(panel, ref);
+  if (!data) return res.status(404).json({ ok: false, error: "Não encontrado" });
+  res.json({ ok: true, data });
 });
 
 // --- start ---
