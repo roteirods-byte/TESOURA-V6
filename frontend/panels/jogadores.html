@@ -21,15 +21,19 @@
     <div class="card">
       <h1>JOGADORES (V6)</h1>
       <div class="row">
-        <input id="apelido" placeholder="Apelido (obrigatório)" />
-        <input id="nome" placeholder="Nome" />
-        <button id="btnSalvar">SALVAR</button>
-        <button id="btnCarregar">CARREGAR LISTA</button>
-      </div>
-      <div id="status" style="margin-top:10px;color:var(--muted)"></div>
-      <div id="list" class="list"></div>
-    </div>
-  </div>
+  <input id="apelido" placeholder="Apelido (obrigatório)" />
+  <input id="nome" placeholder="Nome" />
+  <button id="btnSalvar">SALVAR</button>
+  <button id="btnCarregar">CARREGAR LISTA</button>
+</div>
+
+<div class="row">
+  <select id="histSel" style="padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text);">
+    <option value="">HISTÓRICO (selecione)</option>
+  </select>
+  <button id="btnHistAtualizar">ATUALIZAR HISTÓRICO</button>
+  <button id="btnHistCarregar">CARREGAR SELECIONADO</button>
+</div>
 
   <script>
     const statusEl = document.getElementById("status");
@@ -59,9 +63,39 @@
       statusEl.textContent = "Salvo. ID: " + resp.id;
       await carregar();
     }
+async function atualizarHistorico(){
+  const r = await fetch("/api/jogadores/historico");
+  const resp = await r.json();
+  const sel = document.getElementById("histSel");
+  sel.innerHTML = `<option value="">HISTÓRICO (selecione)</option>`;
+  if(!resp.ok) { return; }
+  resp.items.forEach(it => {
+    const opt = document.createElement("option");
+    opt.value = it.ref;
+    opt.textContent = it.ref;
+    sel.appendChild(opt);
+  });
+}
+
+async function carregarDoHistorico(){
+  const ref = document.getElementById("histSel").value;
+  if(!ref){ statusEl.textContent = "Selecione um item do histórico"; return; }
+  statusEl.textContent = "Carregando histórico...";
+  const r = await fetch(`/api/jogadores/carregar?ref=${encodeURIComponent(ref)}`);
+  const resp = await r.json();
+  if(!resp.ok){ statusEl.textContent = "ERRO: " + (resp.error || "falha"); return; }
+
+  // Apenas exibe o snapshot por enquanto
+  listEl.textContent = JSON.stringify(resp.data, null, 2);
+  statusEl.textContent = "OK: histórico carregado";
+}
 
     document.getElementById("btnCarregar").onclick = carregar;
     document.getElementById("btnSalvar").onclick = salvar;
   </script>
-</body>
-</html>
+document.getElementById("btnCarregar").onclick = carregar;
+document.getElementById("btnSalvar").onclick = salvar;
+
+document.getElementById("btnHistAtualizar").onclick = atualizarHistorico;
+document.getElementById("btnHistCarregar").onclick = carregarDoHistorico;
+atualizarHistorico();
