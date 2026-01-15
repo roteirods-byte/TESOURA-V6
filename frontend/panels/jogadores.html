@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Jogadores</title>
+  <link rel="stylesheet" href="../app/css/tokens.css" />
+  <link rel="stylesheet" href="../app/css/ui.css" />
+  <style>
+    .wrap{ padding:14px; }
+    .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    input{ padding:10px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--text); }
+    button{ padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.10); color:var(--text); cursor:pointer; font-weight:700; }
+    h1{ margin:0 0 10px 0; color:var(--accent); }
+    .list{ margin-top:12px; font-family:monospace; font-size:13px; white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>JOGADORES (V6)</h1>
+      <div class="row">
+        <input id="apelido" placeholder="Apelido (obrigatório)" />
+        <input id="nome" placeholder="Nome" />
+        <button id="btnSalvar">SALVAR</button>
+        <button id="btnCarregar">CARREGAR LISTA</button>
+      </div>
+      <div id="status" style="margin-top:10px;color:var(--muted)"></div>
+      <div id="list" class="list"></div>
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const listEl = document.getElementById("list");
+
+    async function carregar(){
+      statusEl.textContent = "Carregando...";
+      const r = await fetch("/api/jogadores");
+      const data = await r.json();
+      statusEl.textContent = "OK: " + data.length + " jogadores";
+      listEl.textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function salvar(){
+      const apelido = document.getElementById("apelido").value.trim();
+      const nome = document.getElementById("nome").value.trim();
+      if(!apelido){ statusEl.textContent = "ERRO: informe o APELIDO"; return; }
+
+      statusEl.textContent = "Salvando...";
+      const r = await fetch("/api/jogadores", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ apelido, nome })
+      });
+      const resp = await r.json();
+      if(!resp.ok){ statusEl.textContent = "ERRO: " + (resp.error || "falha"); return; }
+      statusEl.textContent = "Salvo. ID: " + resp.id;
+      await carregar();
+    }
+
+    document.getElementById("btnCarregar").onclick = carregar;
+    document.getElementById("btnSalvar").onclick = salvar;
+  </script>
+</body>
+</html>
