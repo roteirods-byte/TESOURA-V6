@@ -5,28 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TESOURA - Controle do Futebol</title>
 
-  <!-- EVITA CACHE (importante em revisão) -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
   <style>
     :root{
-      --bg1:#07101f;
-      --bg2:#0b1b2f;
-      --panel:#0a1628;
-      --panel2:#0b2038;
+      --bg1:#07101f; --bg2:#0b1b2f;
       --line:rgba(255,255,255,.10);
-      --text:#eaf2ff;
-      --muted:rgba(234,242,255,.70);
+      --text:#eaf2ff; --muted:rgba(234,242,255,.70);
       --accent:#ff7f27;
-      --accent2:#ffb26a;
-      --ok:#2ee59d;
-      --btn:#123455;
       --shadow:0 10px 30px rgba(0,0,0,.35);
       --radius:14px;
     }
-
     *{box-sizing:border-box}
     body{
       margin:0;
@@ -39,55 +30,26 @@
       min-height:100vh;
     }
 
-    /* TOPBAR */
     .topbar{
-      position:sticky;
-      top:0;
-      z-index:20;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
+      position:sticky; top:0; z-index:20;
+      display:flex; align-items:center; justify-content:space-between;
       padding:12px 18px;
       background:linear-gradient(180deg, rgba(6,14,28,.92), rgba(6,14,28,.70));
       border-bottom:1px solid var(--line);
       backdrop-filter: blur(10px);
     }
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      min-width:260px;
-    }
+    .brand{ display:flex; align-items:center; gap:12px; min-width:260px; }
     .brand .dot{
       width:14px;height:14px;border-radius:50%;
       background:var(--accent);
       box-shadow:0 0 0 4px rgba(255,127,39,.15);
       flex:0 0 auto;
     }
-    .brand .title{
-      display:flex;
-      flex-direction:column;
-      line-height:1.05;
-    }
-    .brand .title .h1{
-      font-weight:900;
-      letter-spacing:.5px;
-      color:var(--accent);
-      font-size:16px;
-    }
-    .brand .title .h2{
-      font-size:12px;
-      color:var(--muted);
-      margin-top:2px;
-    }
+    .brand .title{ display:flex; flex-direction:column; line-height:1.05; }
+    .brand .title .h1{ font-weight:900; letter-spacing:.5px; color:var(--accent); font-size:16px; }
+    .brand .title .h2{ font-size:12px; color:var(--muted); margin-top:2px; }
 
-    .tabs{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      justify-content:center;
-      padding:0 10px;
-    }
+    .tabs{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:0 10px; }
     .tab{
       border:1px solid var(--line);
       background:rgba(255,255,255,.06);
@@ -107,15 +69,12 @@
       box-shadow:0 0 0 3px rgba(255,127,39,.12);
       background:rgba(255,127,39,.10);
     }
+    .tab.hide{ display:none !important; }
 
     .mode-pill{
       min-width:240px;
-      display:flex;
-      justify-content:flex-end;
-      align-items:center;
-      gap:8px;
-      font-size:12px;
-      color:var(--muted);
+      display:flex; justify-content:flex-end; align-items:center; gap:8px;
+      font-size:12px; color:var(--muted);
     }
     .mode-pill b{
       color:var(--text);
@@ -125,10 +84,7 @@
       border-radius:999px;
     }
 
-    /* IFRAME */
-    .frame-wrap{
-      padding:14px;
-    }
+    .frame-wrap{ padding:14px; }
     iframe{
       width:100%;
       height:calc(100vh - 86px);
@@ -139,16 +95,12 @@
       overflow:hidden;
     }
 
-    /* GATE (TELA INICIAL) */
+    /* GATE */
     .gate{
-      position:fixed;
-      inset:0;
+      position:fixed; inset:0;
       background:rgba(0,0,0,.55);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      z-index:50;
-      padding:18px;
+      display:flex; align-items:center; justify-content:center;
+      z-index:50; padding:18px;
     }
     .gate-card{
       width:min(760px, 100%);
@@ -159,38 +111,22 @@
       padding:18px;
     }
     .gate-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
       padding:6px 6px 14px 6px;
       border-bottom:1px solid rgba(255,255,255,.10);
     }
-    .gate-head .left{
-      display:flex;align-items:center;gap:12px;
-    }
+    .gate-head .left{ display:flex; align-items:center; gap:12px; }
     .gate-head .badge{
       width:14px;height:14px;border-radius:50%;
       background:var(--accent);
       box-shadow:0 0 0 4px rgba(255,127,39,.15);
     }
-    .gate-head h3{
-      margin:0;
-      color:var(--accent);
-      font-size:18px;
-      letter-spacing:.2px;
-    }
-    .gate-head p{
-      margin:3px 0 0 0;
-      color:var(--muted);
-      font-size:12px;
-    }
+    .gate-head h3{ margin:0; color:var(--accent); font-size:18px; letter-spacing:.2px; }
+    .gate-head p{ margin:3px 0 0 0; color:var(--muted); font-size:12px; }
 
     .gate-body{
       padding:16px 6px 6px 6px;
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
+      display:grid; grid-template-columns:1fr 1fr; gap:12px;
     }
     @media (max-width:700px){
       .gate-body{ grid-template-columns:1fr; }
@@ -209,24 +145,11 @@
       text-align:left;
       box-shadow:0 12px 30px rgba(0,0,0,.22);
     }
-    .gate-btn .t{
-      font-weight:900;
-      font-size:14px;
-      margin-bottom:6px;
-    }
-    .gate-btn .d{
-      font-size:12px;
-      color:var(--muted);
-      line-height:1.3;
-    }
-    .gate-btn.jog{ border-color:rgba(46,229,157,.22); }
-    .gate-btn.dir{ border-color:rgba(255,127,39,.22); }
+    .gate-btn .t{ font-weight:900; font-size:14px; margin-bottom:6px; }
+    .gate-btn .d{ font-size:12px; color:var(--muted); line-height:1.3; }
     .gate-btn:hover{ border-color:rgba(255,255,255,.20); }
 
-    .mini{
-      font-size:11px;color:var(--muted);
-      padding:10px 6px 0 6px;
-    }
+    .mini{ font-size:11px; color:var(--muted); padding:10px 6px 0 6px; }
   </style>
 </head>
 
@@ -245,7 +168,7 @@
       <button class="tab" data-panel="presenca_escalacao">PRESENÇA / ESCALAÇÃO</button>
       <button class="tab" data-panel="controle_geral">CONTROLE GERAL</button>
       <button class="tab" data-panel="mensalidade">MENSALIDADE</button>
-      <button class="tab" data-panel="caixa">CAIXA</button>
+      <button class="tab" data-panel="caixa" id="tabCaixa">CAIXA</button>
       <button class="tab" data-panel="gols">GOLS</button>
     </div>
 
@@ -259,7 +182,6 @@
     <iframe id="frame" title="TESOURA"></iframe>
   </div>
 
-  <!-- TELA INICIAL / SENHA -->
   <div class="gate" id="gate">
     <div class="gate-card">
       <div class="gate-head">
@@ -273,35 +195,38 @@
       </div>
 
       <div class="gate-body">
-        <button class="gate-btn jog" id="btnEntrarJog">
+        <button class="gate-btn" id="btnEntrarJog">
           <div class="t">ENTRAR JOGADORES</div>
-          <div class="d">Modo visual (travado): não permite editar nem excluir.</div>
+          <div class="d">Somente visual + baixar PDF. Sem edição.</div>
         </button>
 
-        <button class="gate-btn dir" id="btnEntrarDir">
+        <button class="gate-btn" id="btnEntrarDir">
           <div class="t">ENTRAR DIRETORIA</div>
-          <div class="d">Modo completo: permite salvar, editar e excluir.</div>
+          <div class="d">Modo completo (alguns usuários sem acesso ao Caixa).</div>
         </button>
       </div>
 
       <div class="mini">
-        * Ajuste as senhas no próprio arquivo <b>frontend/index.html</b> (2 linhas no JS).
+        * As senhas ficam configuradas aqui no <b>frontend/index.html</b>.
       </div>
     </div>
   </div>
 
   <script>
     (() => {
-      // ====== CONFIG (edite só aqui) ======
-      const PIN_JOGADORES  = "1234"; // <- TROQUE AQUI
-      const PIN_DIRETORIA  = "5678"; // <- TROQUE AQUI
+      // ====== SENHAS (CONFORME VOCÊ PASSOU) ======
+      const PASS_JOGADORES = "TESOURA2026";
+
+      const PASS_DIRETORIA_FULL = new Set(["1baidec", "2thiago"]);
+      const PASS_DIRETORIA_SEM_CAIXA = new Set(["3love", "4le", "5titi"]);
 
       const frame = document.getElementById("frame");
       const gate  = document.getElementById("gate");
       const modoTxt = document.getElementById("modoTxt");
       const tabs  = [...document.querySelectorAll(".tab")];
+      const tabCaixa = document.getElementById("tabCaixa");
 
-      // NÃO EXISTE MAIS "BANCO DE DADOS"
+      // PAINÉIS (SEM BANCO DE DADOS)
       const panels = {
         jogadores: "panels/jogadores.html",
         presenca_escalacao: "panels/presenca_escalacao.html",
@@ -311,13 +236,34 @@
         gols: "panels/gols.html",
       };
 
-      let modo = "bloqueado"; // bloqueado | jogadores | diretoria
+      // PERFIL ATUAL
+      let perfil = {
+        tipo: "bloqueado",            // bloqueado | jogadores | diretoria
+        noCaixa: true,                // true = sem caixa
+        label: "Bloqueado"
+      };
 
       function setActive(key){
         tabs.forEach(b => b.classList.toggle("active", b.dataset.panel === key));
       }
 
+      function aplicarTabs(){
+        // esconde/mostra CAIXA
+        if(perfil.noCaixa){
+          tabCaixa.classList.add("hide");
+        }else{
+          tabCaixa.classList.remove("hide");
+        }
+      }
+
       function openPanel(key){
+        if(perfil.tipo === "bloqueado") return;
+
+        // bloqueia caixa quando não permitido
+        if(key === "caixa" && perfil.noCaixa){
+          key = "jogadores";
+        }
+
         const url = panels[key] || panels.jogadores;
         setActive(key);
         frame.src = url + "?v=" + Date.now();
@@ -325,67 +271,105 @@
       }
 
       function aplicarModoNoIframe(){
+        if(perfil.tipo !== "jogadores") return;
+
         try{
           const doc = frame.contentDocument;
           if(!doc) return;
 
-          // remove qualquer bloqueio anterior
+          // limpa lock antigo
           const old = doc.getElementById("TESOURA_MODE_LOCK");
           if(old) old.remove();
 
-          if(modo === "jogadores"){
-            const st = doc.createElement("style");
-            st.id = "TESOURA_MODE_LOCK";
-            st.textContent = `
-              button, input, select, textarea {
-                pointer-events: none !important;
-                opacity: .85 !important;
-                filter: grayscale(.35) !important;
-              }
-              a { pointer-events: none !important; }
-            `;
-            doc.head.appendChild(st);
-          }
-        }catch(e){
-          // se algum painel for cross-origin (não deve), ignora
-        }
+          // 1) desabilita campos de digitação
+          doc.querySelectorAll("input, select, textarea").forEach(el => {
+            el.setAttribute("disabled", "disabled");
+          });
+
+          // 2) desabilita botões de edição (mas mantém baixar pdf/carregar/atualizar)
+          const KEEP = ["BAIXAR", "PDF", "CARREGAR", "ATUALIZAR", "HISTÓRICO", "LISTA", "RECARREGAR"];
+          const BLOCK = ["SALVAR", "EXCLUIR", "EDITAR", "CANCELAR", "REMOVER", "APAGAR"];
+
+          doc.querySelectorAll("button").forEach(btn => {
+            const t = (btn.innerText || "").toUpperCase().trim();
+            const keep = KEEP.some(k => t.includes(k));
+            const block = BLOCK.some(k => t.includes(k));
+            if(block && !keep){
+              btn.setAttribute("disabled", "disabled");
+              btn.style.opacity = "0.85";
+              btn.style.filter = "grayscale(.35)";
+            }
+          });
+
+          // marcador (opcional)
+          const st = doc.createElement("style");
+          st.id = "TESOURA_MODE_LOCK";
+          st.textContent = ``;
+          doc.head.appendChild(st);
+        }catch(e){}
       }
 
       frame.addEventListener("load", () => {
         aplicarModoNoIframe();
       });
 
-      tabs.forEach(b => b.addEventListener("click", () => {
-        if(modo === "bloqueado") return; // não navega sem entrar
-        openPanel(b.dataset.panel);
-      }));
+      tabs.forEach(b => b.addEventListener("click", () => openPanel(b.dataset.panel)));
 
-      function pedirSenha(titulo, pinCorreto){
+      function pedirSenha(titulo){
         const s = prompt(titulo);
-        if(s === null) return false;
-        return String(s).trim() === String(pinCorreto).trim();
+        if(s === null) return null;
+        return String(s).trim();
+      }
+
+      function loginPorSenha(s){
+        if(!s) return false;
+
+        if(s === PASS_JOGADORES){
+          perfil = { tipo:"jogadores", noCaixa:true, label:"Jogadores" };
+          return true;
+        }
+
+        if(PASS_DIRETORIA_FULL.has(s)){
+          perfil = { tipo:"diretoria", noCaixa:false, label:"Diretoria" };
+          return true;
+        }
+
+        if(PASS_DIRETORIA_SEM_CAIXA.has(s)){
+          perfil = { tipo:"diretoria", noCaixa:true, label:"Diretoria (sem Caixa)" };
+          return true;
+        }
+
+        return false;
+      }
+
+      function entrar(tituloPrompt){
+        const s = pedirSenha(tituloPrompt);
+        if(s === null) return;
+
+        if(!loginPorSenha(s)){
+          alert("Senha inválida.");
+          return;
+        }
+
+        modoTxt.textContent = perfil.label;
+        aplicarTabs();
+        gate.style.display = "none";
+
+        const start = (location.hash || "").replace("#","") || "jogadores";
+        openPanel(start);
       }
 
       document.getElementById("btnEntrarJog").addEventListener("click", () => {
-        if(!pedirSenha("Digite a senha (JOGADORES):", PIN_JOGADORES)) return;
-        modo = "jogadores";
-        modoTxt.textContent = "Jogadores";
-        gate.style.display = "none";
-        const start = (location.hash || "").replace("#","") || "jogadores";
-        openPanel(start);
+        entrar("Digite a senha (JOGADORES):");
       });
 
       document.getElementById("btnEntrarDir").addEventListener("click", () => {
-        if(!pedirSenha("Digite a senha (DIRETORIA):", PIN_DIRETORIA)) return;
-        modo = "diretoria";
-        modoTxt.textContent = "Diretoria";
-        gate.style.display = "none";
-        const start = (location.hash || "").replace("#","") || "jogadores";
-        openPanel(start);
+        entrar("Digite a senha (DIRETORIA):");
       });
 
-      // trava inicial
+      // estado inicial
       modoTxt.textContent = "Bloqueado";
+      aplicarTabs();
     })();
   </script>
 </body>
