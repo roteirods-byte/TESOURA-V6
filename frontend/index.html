@@ -5,123 +5,310 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TESOURA</title>
 
-  <!-- Evitar cache do index -->
+  <!-- Base (pode existir no projeto) -->
+  <link rel="stylesheet" href="app/css/ui.css?v=1" />
+
+  <!-- Evitar cache do INDEX -->
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
-  <!-- CSS base do projeto (mantém o que já existe) -->
-  <link rel="stylesheet" href="app/css/ui.css?v=1" />
-
   <style>
-    :root{
-      --bg:#0b1220;
-      --bg2:#111827;
-      --card:#081427;
-      --line:#334155;
-      --text:#e5e7eb;
-      --accent:#ff7f27;
-      --green:#22c55e;
-      --blue:#3b82f6;
-      --red:#ef4444;
-    }
-    body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:#fff}
+    body{margin:0;font-family:Arial,sans-serif;background:#0b1220;color:#fff}
+
     .topbar{
-      background:var(--bg2);
-      padding:10px 20px;
-      border-bottom:2px solid var(--accent);
+      background:#111827;padding:10px 20px;color:#ff7f27;font-weight:900;font-size:18px;
       display:flex;align-items:center;justify-content:space-between;gap:12px
     }
-    .brand{display:flex;align-items:center;gap:10px}
-    .brand .dot{width:10px;height:10px;border-radius:999px;background:var(--accent);display:inline-block}
-    .brand h1{margin:0;font-size:18px;font-weight:900;color:var(--accent);line-height:1}
-    .brand small{display:block;color:#fff;opacity:.9;font-weight:700;margin-top:2px}
+    .topbar .actions{display:flex;align-items:center;gap:8px}
+    .mode{font-size:12px;color:#fff;opacity:.95;background:#0b1220;border:1px solid #334155;padding:4px 8px;border-radius:999px}
+    .topbar button{border:none;border-radius:8px;padding:7px 11px;font-weight:900;cursor:pointer}
+    .btn-logout{background:#ef4444;color:#fff;display:none}
 
-    .actions{display:flex;align-items:center;gap:8px}
-    .mode{
-      font-size:12px;color:#fff;opacity:.95;
-      background:var(--bg);
-      border:1px solid var(--line);
-      padding:4px 10px;border-radius:999px;
-      white-space:nowrap;
+    .tabs{display:flex;background:#111827;border-bottom:2px solid #ff7f27}
+    .tab-btn{
+      flex:1;padding:10px;cursor:pointer;text-align:center;border:none;
+      background:#111827;color:#fff;font-weight:900;font-size:14px
     }
-    .btn{
-      border:none;border-radius:10px;
-      padding:8px 12px;
-      font-weight:900;cursor:pointer;
-    }
-    .btn.sair{background:var(--red);color:#fff;display:none}
-    .btn.entrar{background:#0ea5e9;color:#06162f;display:none}
+    .tab-btn.active{background:#1f2937;color:#ff7f27;border-bottom:3px solid #ff7f27}
 
-    .tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-    .tab{
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.10);
-      color:#fff;
-      padding:8px 12px;
-      border-radius:999px;
-      cursor:pointer;
-      font-weight:900;
-      font-size:13px;
-    }
-    .tab.active{
-      color:var(--accent);
-      border-color:rgba(255,127,39,.55);
-      box-shadow:0 0 0 2px rgba(255,127,39,.10) inset;
-    }
-    .tab.disabled{
-      opacity:.35;
-      cursor:not-allowed;
-    }
+    .frame-wrap{height:calc(100vh - 80px);background:#0b1220}
+    iframe{width:100%;height:100%;border:none;background:#0b1220}
 
-    .container{padding:14px}
-    .card{
-      background:rgba(8,20,39,.65);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:16px;
-      overflow:hidden;
-    }
-    iframe{
-      width:100%;
-      height:calc(100vh - 130px);
-      border:0;
-      background:var(--bg);
-    }
-
-    /* Tela inicial (Login) */
+    /* TELA INICIAL (SENHA) */
     #telaInicial{
-      position:fixed;inset:0;z-index:9998;
-      display:flex;align-items:center;justify-content:center;
-      padding:16px;
-      background:rgba(0,0,0,.80);
+      position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;
+      padding:16px;background:rgba(0,0,0,.80)
     }
     #telaInicial .box{
-      width:min(560px,100%);
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:18px;
-      text-align:center;
+      width:min(520px,100%);background:#081427;border:1px solid #334155;border-radius:14px;
+      padding:18px;text-align:center
     }
-    #telaInicial .t1{color:var(--accent);font-weight:900;font-size:22px}
-    #telaInicial .t2{color:var(--text);margin-top:8px;font-weight:800}
-    #telaInicial .t3{color:var(--text);margin-top:18px;font-weight:900}
+    #telaInicial .t1{color:#ff7f27;font-weight:900;font-size:22px}
+    #telaInicial .t2{color:#e5e7eb;margin-top:8px;font-weight:800}
+    #telaInicial .t3{color:#e5e7eb;margin-top:18px;font-weight:900}
     #telaInicial .row{display:flex;gap:14px;justify-content:center;margin-top:18px;flex-wrap:wrap}
     #telaInicial .btnJ{
-      min-width:220px;border:none;border-radius:12px;
-      padding:12px 14px;font-weight:900;cursor:pointer;
-      background:var(--green);color:#052e16
+      min-width:200px;border:none;border-radius:10px;padding:12px 14px;font-weight:900;cursor:pointer;
+      background:#22c55e;color:#052e16
     }
     #telaInicial .btnD{
-      min-width:220px;border:none;border-radius:12px;
-      padding:12px 14px;font-weight:900;cursor:pointer;
-      background:var(--blue);color:#06162f
+      min-width:200px;border:none;border-radius:10px;padding:12px 14px;font-weight:900;cursor:pointer;
+      background:#3b82f6;color:#06162f
     }
-    #telaInicial .msg{margin-top:12px;color:var(--text);font-size:12px;min-height:16px}
+    #telaInicial .msg{margin-top:12px;color:#e5e7eb;font-size:12px;min-height:16px}
     noscript{display:block;padding:12px;background:#b91c1c;color:#fff;font-weight:900;text-align:center}
   </style>
 
-  <script type="module" src="app/js/firebase-init.js?v=2"></script>
+  <script>
+    // ===== SENHAS (OFICIAL) =====
+    const PIN_JOGADORES = "TESOURA2026"; // Jogadores (visual)
+    const PINS_DIR_FULL = ["1baidec","2thiago"]; // Diretoria FULL (tudo)
+    const PINS_DIR_SEM_CAIXA = ["3love","4le","5titi"]; // Diretoria sem Caixa
+
+    function qs(id){ return document.getElementById(id); }
+
+    function cacheBust(url){
+      const sep = url.includes("?") ? "&" : "?";
+      return url + sep + "cb=" + Date.now();
+    }
+
+    function setBadge(txt){
+      const b = qs("modeBadge");
+      if(b) b.textContent = txt;
+    }
+
+    function showTelaInicial(v){
+      const t = qs("telaInicial");
+      if(t) t.style.display = v ? "flex" : "none";
+      const m = qs("msgTelaInicial");
+      if(m) m.textContent = "";
+    }
+
+    function showLogout(v){
+      const b = qs("btnLogout");
+      if(b) b.style.display = v ? "inline-block" : "none";
+    }
+
+    async function disableServiceWorker(){
+      try{
+        if("serviceWorker" in navigator){
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for(const r of regs){ await r.unregister(); }
+        }
+      }catch(e){}
+      try{
+        if("caches" in window){
+          const keys = await caches.keys();
+          for(const k of keys){ await caches.delete(k); }
+        }
+      }catch(e){}
+    }
+
+    function pedirSenha(titulo){
+      const s = prompt(titulo);
+      if(s === null) return null;
+      return String(s).trim();
+    }
+
+    function marcarAbaAtiva(key){
+      document.querySelectorAll(".tab-btn").forEach(b=>{
+        b.classList.toggle("active", b.dataset.panel === key);
+      });
+    }
+
+    function aplicarPermissoesTabs(){
+      // esconde/mostra abas conforme modo
+      const tabMensalidade = qs("tab_mensalidade");
+      const tabCaixa = qs("tab_caixa");
+
+      // padrão: mostra tudo
+      if(tabMensalidade) tabMensalidade.style.display = "";
+      if(tabCaixa) tabCaixa.style.display = "";
+
+      if(window.TESOURA_ROLE === "jogador"){
+        // jogador não vê financeiro
+        if(tabMensalidade) tabMensalidade.style.display = "none";
+        if(tabCaixa) tabCaixa.style.display = "none";
+      }
+
+      if(window.TESOURA_ROLE === "dir_sem_caixa"){
+        if(tabCaixa) tabCaixa.style.display = "none";
+      }
+    }
+
+    function podeAbrirPanel(key){
+      if(window.TESOURA_ROLE === "bloqueado") return false;
+      if(window.TESOURA_ROLE === "jogador" && (key === "mensalidade" || key === "caixa")) return false;
+      if(window.TESOURA_ROLE === "dir_sem_caixa" && key === "caixa") return false;
+      return true;
+    }
+
+    function travarIframeJogador(iframe){
+      try{
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if(!doc || !doc.body) return;
+
+        let banner = doc.getElementById("TESOURA_JOGADOR_BANNER");
+        if(!banner){
+          banner = doc.createElement("div");
+          banner.id = "TESOURA_JOGADOR_BANNER";
+          banner.textContent = "MODO JOGADOR: SOMENTE VISUALIZAÇÃO";
+          banner.style.cssText =
+            "position:fixed;top:0;left:0;right:0;z-index:999999;" +
+            "background:#b91c1c;color:#fff;font-weight:900;" +
+            "padding:8px 10px;text-align:center;font-size:12px;";
+          doc.body.appendChild(banner);
+          doc.body.style.paddingTop = "40px";
+        }
+
+        let style = doc.getElementById("TESOURA_JOGADOR_LOCK");
+        if(!style){
+          style = doc.createElement("style");
+          style.id = "TESOURA_JOGADOR_LOCK";
+          style.textContent = `
+            input, select, textarea {
+              pointer-events:none !important;
+              opacity:0.60 !important;
+              cursor:not-allowed !important;
+            }
+            button, a, [role="button"], [onclick]{
+              pointer-events:none !important;
+              opacity:0.55 !important;
+              cursor:not-allowed !important;
+            }
+          `;
+          (doc.head || doc.documentElement).appendChild(style);
+        }
+
+        // libera botões de VISUALIZAÇÃO (PDF / carregar / histórico)
+        const allowRe = /(PDF|CARREGAR|ATUALIZAR|HISTÓRICO|HISTORICO|LISTA|SELECIONADO)/i;
+        doc.querySelectorAll("button,a,[role='button']").forEach(el=>{
+          const t = (el.textContent || "").trim();
+          if(allowRe.test(t)){
+            el.style.pointerEvents = "auto";
+            el.style.opacity = "1";
+            el.style.cursor = "pointer";
+            el.style.filter = "none";
+          }
+        });
+
+      }catch(e){}
+    }
+
+    function aplicarModoNoIframe(){
+      const iframe = qs("frame");
+      if(!iframe) return;
+      if(window.TESOURA_ROLE === "jogador") travarIframeJogador(iframe);
+    }
+
+    function openPanel(key){
+      if(!podeAbrirPanel(key)){
+        // se tentar abrir algo bloqueado, volta para jogadores
+        key = "jogadores";
+      }
+      const iframe = qs("frame");
+      const panels = {
+        jogadores: "panels/jogadores.html",
+        presenca_escalacao: "panels/presenca_escalacao.html",
+        controle_geral: "panels/controle_geral.html",
+        mensalidade: "panels/mensalidade.html",
+        caixa: "panels/caixa.html",
+        gols: "panels/gols.html",
+      };
+      marcarAbaAtiva(key);
+      if(iframe){
+        iframe.src = "about:blank";
+        setTimeout(()=>{ iframe.src = cacheBust(panels[key] || panels.jogadores); }, 0);
+      }
+      location.hash = "#" + key;
+    }
+
+    function entrarJogadores(){
+      const pin = pedirSenha("Digite a senha (JOGADORES):");
+      if(pin === null) return;
+
+      if(String(pin) !== String(PIN_JOGADORES)){
+        qs("msgTelaInicial").textContent = "Senha incorreta.";
+        alert("Senha incorreta.");
+        return;
+      }
+
+      window.TESOURA_ROLE = "jogador";
+      setBadge("Modo: Jogadores (visual)");
+      showTelaInicial(false);
+      showLogout(true);
+      aplicarPermissoesTabs();
+
+      const start = (location.hash || "").replace("#","") || "jogadores";
+      openPanel(start);
+    }
+
+    function entrarDiretoria(){
+      const pin = pedirSenha("Digite a senha (DIRETORIA):");
+      if(pin === null) return;
+
+      if(PINS_DIR_FULL.includes(pin)){
+        window.TESOURA_ROLE = "dir_full";
+        setBadge("Modo: Diretoria");
+      }else if(PINS_DIR_SEM_CAIXA.includes(pin)){
+        window.TESOURA_ROLE = "dir_sem_caixa";
+        setBadge("Modo: Diretoria (sem Caixa)");
+      }else{
+        qs("msgTelaInicial").textContent = "Senha incorreta.";
+        alert("Senha incorreta.");
+        return;
+      }
+
+      showTelaInicial(false);
+      showLogout(true);
+      aplicarPermissoesTabs();
+
+      const start = (location.hash || "").replace("#","") || "jogadores";
+      // se for sem caixa e cair em #caixa, corrige
+      openPanel(start);
+    }
+
+    function sair(){
+      window.TESOURA_ROLE = "bloqueado";
+      setBadge("Modo: —");
+      showLogout(false);
+      showTelaInicial(true);
+
+      // volta para jogadores no hash, mas sem abrir painel sem login
+      location.hash = "#jogadores";
+      const iframe = qs("frame");
+      if(iframe) iframe.src = "about:blank";
+      aplicarPermissoesTabs();
+    }
+
+    window.addEventListener("load", async ()=>{
+      await disableServiceWorker();
+
+      // regra: sempre pedir senha ao abrir
+      window.TESOURA_ROLE = "bloqueado";
+      setBadge("Modo: —");
+      showLogout(false);
+      showTelaInicial(true);
+      aplicarPermissoesTabs();
+
+      // ativa cliques das abas (só depois de entrar)
+      document.querySelectorAll(".tab-btn").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const key = btn.dataset.panel;
+          if(window.TESOURA_ROLE === "bloqueado") return;
+          openPanel(key);
+        });
+      });
+
+      qs("btnEntrarJog").addEventListener("click", entrarJogadores);
+      qs("btnEntrarDir").addEventListener("click", entrarDiretoria);
+      qs("btnLogout").addEventListener("click", sair);
+
+      // aplica trava no iframe quando carregar
+      qs("frame").addEventListener("load", ()=>aplicarModoNoIframe());
+    });
+  </script>
 </head>
 
 <body>
@@ -135,8 +322,8 @@
       <div class="t3">APLICATIVO DO GRUPO</div>
 
       <div class="row">
-        <button class="btnJ" id="btnEntrarJogadores">ENTRAR JOGADORES</button>
-        <button class="btnD" id="btnEntrarDiretoria">ENTRAR DIRETORIA</button>
+        <button class="btnJ" id="btnEntrarJog">ENTRAR JOGADORES</button>
+        <button class="btnD" id="btnEntrarDir">ENTRAR DIRETORIA</button>
       </div>
 
       <div class="msg" id="msgTelaInicial"></div>
@@ -144,264 +331,25 @@
   </div>
 
   <div class="topbar">
-    <div class="brand">
-      <span class="dot"></span>
-      <div>
-        <h1>TESOURA - CONTROLE DO FUTEBOL</h1>
-        <small>Aplicativo do grupo</small>
-      </div>
-    </div>
-
-    <div class="tabs" id="tabs">
-      <button class="tab" data-panel="jogadores">JOGADORES</button>
-      <button class="tab" data-panel="presenca_escalacao">PRESENÇA / ESCALAÇÃO</button>
-      <button class="tab" data-panel="controle_geral">CONTROLE GERAL</button>
-      <button class="tab" data-panel="mensalidade">MENSALIDADE</button>
-      <button class="tab" data-panel="caixa" id="tabCaixa">CAIXA</button>
-      <button class="tab" data-panel="gols">GOLS</button>
-    </div>
-
+    <div>TESOURA – CONTROLE DO FUTEBOL</div>
     <div class="actions">
-      <div class="mode" id="modeBadge">Modo: Bloqueado</div>
-      <button class="btn sair" id="btnSair">SAIR</button>
+      <div class="mode" id="modeBadge">Modo: —</div>
+      <button class="btn-logout" id="btnLogout">SAIR</button>
     </div>
   </div>
 
-  <div class="container">
-    <div class="card">
-      <iframe id="frame" title="TESOURA"></iframe>
-    </div>
+  <div class="tabs">
+    <button class="tab-btn active" id="tab_jogadores" data-panel="jogadores">JOGADORES</button>
+    <button class="tab-btn" id="tab_presenca" data-panel="presenca_escalacao">PRESENÇA / ESCALAÇÃO</button>
+    <button class="tab-btn" id="tab_controle" data-panel="controle_geral">CONTROLE GERAL</button>
+    <button class="tab-btn" id="tab_mensalidade" data-panel="mensalidade">MENSALIDADE</button>
+    <button class="tab-btn" id="tab_caixa" data-panel="caixa">CAIXA</button>
+    <button class="tab-btn" id="tab_gols" data-panel="gols">GOLS</button>
   </div>
 
-  <script>
-    (function () {
-      // =========================
-      // SENHAS (AJUSTE AQUI)
-      // =========================
-      const PIN_JOGADORES = "TESOURA2026";
-
-      // Diretoria (tudo)
-      const PINS_DIR_FULL = new Set(["1baidec", "2thiago"]);
-
-      // Diretoria (sem Caixa)
-      const PINS_DIR_SEM_CAIXA = new Set(["3love", "4le", "5titi"]);
-
-      // =========================
-      // CONFIG / MAPA DE PAINÉIS
-      // =========================
-      const panels = {
-        jogadores: "panels/jogadores.html",
-        presenca_escalacao: "panels/presenca_escalacao.html",
-        controle_geral: "panels/controle_geral.html",
-        mensalidade: "panels/mensalidade.html",
-        caixa: "panels/caixa.html",
-        gols: "panels/gols.html",
-      };
-
-      const frame = document.getElementById("frame");
-      const tabs = Array.from(document.querySelectorAll(".tab"));
-      const telaInicial = document.getElementById("telaInicial");
-      const msgTelaInicial = document.getElementById("msgTelaInicial");
-      const modeBadge = document.getElementById("modeBadge");
-      const btnSair = document.getElementById("btnSair");
-      const tabCaixa = document.getElementById("tabCaixa");
-
-      function setBadge(txt){ modeBadge.textContent = txt; }
-      function showTelaInicial(v){ telaInicial.style.display = v ? "flex" : "none"; }
-      function cacheBust(url){
-        const sep = url.includes("?") ? "&" : "?";
-        return url + sep + "v=" + Date.now();
-      }
-
-      // Estado (salvo)
-      const state = {
-        role: localStorage.getItem("TESOURA_ROLE") || "bloqueado", // jogador | diretoria_full | diretoria_sem_caixa | bloqueado
-      };
-
-      function persist(){
-        localStorage.setItem("TESOURA_ROLE", state.role);
-      }
-
-      function applyRoleUI(){
-        // Botão SAIR aparece somente logado
-        const logado = state.role !== "bloqueado";
-        btnSair.style.display = logado ? "inline-block" : "none";
-
-        if(state.role === "jogador") setBadge("Modo: Jogadores (visual)");
-        else if(state.role === "diretoria_full") setBadge("Modo: Diretoria");
-        else if(state.role === "diretoria_sem_caixa") setBadge("Modo: Diretoria (sem Caixa)");
-        else setBadge("Modo: Bloqueado");
-
-        // Caixa: esconder/desabilitar quando for "sem caixa"
-        const semCaixa = state.role === "diretoria_sem_caixa";
-        if(semCaixa){
-          tabCaixa.classList.add("disabled");
-          tabCaixa.setAttribute("aria-disabled","true");
-        }else{
-          tabCaixa.classList.remove("disabled");
-          tabCaixa.removeAttribute("aria-disabled");
-        }
-      }
-
-      function setActive(key){
-        tabs.forEach(b => b.classList.toggle("active", b.dataset.panel === key));
-      }
-
-      function openPanel(key){
-        if(state.role === "bloqueado"){
-          showTelaInicial(true);
-          msgTelaInicial.textContent = "Faça login para entrar.";
-          return;
-        }
-
-        if(state.role === "diretoria_sem_caixa" && key === "caixa"){
-          alert("Acesso ao CAIXA bloqueado para este usuário.");
-          return;
-        }
-
-        const url = panels[key] || panels.jogadores;
-        setActive(key);
-        frame.src = cacheBust(url);
-        location.hash = "#" + key;
-      }
-
-      // ====== BLOQUEIO (Jogadores: somente visualizar + baixar PDF) ======
-      function travarIframeJogador(iframe){
-        try{
-          const doc = iframe.contentDocument || iframe.contentWindow?.document;
-          if(!doc || !doc.body) return;
-
-          // Banner
-          let banner = doc.getElementById("TESOURA_JOGADOR_BANNER");
-          if(!banner){
-            banner = doc.createElement("div");
-            banner.id = "TESOURA_JOGADOR_BANNER";
-            banner.textContent = "MODO JOGADOR: SOMENTE VISUALIZAÇÃO (PDF LIBERADO)";
-            banner.style.cssText =
-              "position:fixed;top:0;left:0;right:0;z-index:999999;" +
-              "background:#b91c1c;color:#fff;font-weight:900;" +
-              "padding:8px 10px;text-align:center;font-size:12px;";
-            doc.body.appendChild(banner);
-            doc.body.style.paddingTop = "40px";
-          }
-
-          // CSS trava tudo, mas libera botões comuns de PDF
-          let style = doc.getElementById("TESOURA_JOGADOR_LOCK");
-          if(!style){
-            style = doc.createElement("style");
-            style.id = "TESOURA_JOGADOR_LOCK";
-            style.textContent = `
-              button, input, select, textarea, a, [role="button"], [onclick]{
-                pointer-events:none !important;
-                opacity:0.55 !important;
-                cursor:not-allowed !important;
-              }
-              /* libera PDF */
-              #btnPdf, #btnPDF, .btnPdf, .btnPDF,
-              button[id*="Pdf" i], button[id*="PDF" i],
-              button[class*="Pdf" i], button[class*="PDF" i],
-              button[data-action="pdf"], button[data-action="PDF"]{
-                pointer-events:auto !important;
-                opacity:1 !important;
-                cursor:pointer !important;
-              }
-            `;
-            (doc.head || doc.documentElement).appendChild(style);
-          }
-        }catch(e){}
-      }
-
-      function onFrameLoad(){
-        if(state.role === "jogador"){
-          travarIframeJogador(frame);
-        }
-      }
-      frame.addEventListener("load", onFrameLoad);
-
-      // ====== LOGIN ======
-      function pedirSenha(titulo){
-        const s = (prompt(titulo) || "").trim();
-        return s;
-      }
-
-      function loginJogadores(){
-        msgTelaInicial.textContent = "";
-        const pin = pedirSenha("Digite a senha (JOGADORES):");
-        if(!pin){
-          msgTelaInicial.textContent = "Senha vazia.";
-          return;
-        }
-        if(pin !== PIN_JOGADORES){
-          msgTelaInicial.textContent = "Senha incorreta.";
-          alert("Senha incorreta (JOGADORES).");
-          return;
-        }
-        state.role = "jogador";
-        persist();
-        applyRoleUI();
-        showTelaInicial(false);
-        openPanel((location.hash || "").replace("#","") || "jogadores");
-      }
-
-      function loginDiretoria(){
-        msgTelaInicial.textContent = "";
-        const pin = pedirSenha("Digite a senha (DIRETORIA):");
-        if(!pin){
-          msgTelaInicial.textContent = "Senha vazia.";
-          return;
-        }
-
-        if(PINS_DIR_FULL.has(pin)){
-          state.role = "diretoria_full";
-        }else if(PINS_DIR_SEM_CAIXA.has(pin)){
-          state.role = "diretoria_sem_caixa";
-        }else{
-          msgTelaInicial.textContent = "Senha incorreta.";
-          alert("Senha incorreta (DIRETORIA).");
-          return;
-        }
-
-        persist();
-        applyRoleUI();
-        showTelaInicial(false);
-        openPanel((location.hash || "").replace("#","") || "jogadores");
-      }
-
-      function logout(){
-        state.role = "bloqueado";
-        persist();
-        applyRoleUI();
-        showTelaInicial(true);
-        msgTelaInicial.textContent = "Você saiu. Faça login novamente.";
-        frame.src = "about:blank";
-        setActive("");
-        location.hash = "";
-      }
-
-      // ====== EVENTOS ======
-      document.getElementById("btnEntrarJogadores").addEventListener("click", loginJogadores);
-      document.getElementById("btnEntrarDiretoria").addEventListener("click", loginDiretoria);
-      btnSair.addEventListener("click", logout);
-
-      tabs.forEach(b => b.addEventListener("click", () => {
-        if(b.classList.contains("disabled")) return;
-        openPanel(b.dataset.panel);
-      }));
-
-      // ====== START ======
-      applyRoleUI();
-
-      if(state.role === "bloqueado"){
-        showTelaInicial(true);
-        msgTelaInicial.textContent = "";
-        frame.src = "about:blank";
-      }else{
-        showTelaInicial(false);
-        const start = (location.hash || "").replace("#","") || "jogadores";
-        openPanel(start);
-      }
-    })();
-  </script>
+  <div class="frame-wrap">
+    <iframe id="frame" title="TESOURA"></iframe>
+  </div>
 
   <script src="app/js/app.js?v=1" defer></script>
 </body>
