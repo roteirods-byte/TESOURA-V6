@@ -3,163 +3,152 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TESOURA - Controle do Futebol</title>
+  <title>TESOURA</title>
 
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <!-- Evitar cache do index -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
+  <!-- CSS base do projeto (mantém o que já existe) -->
+  <link rel="stylesheet" href="app/css/ui.css?v=1" />
+
   <style>
     :root{
-      --bg1:#07101f; --bg2:#0b1b2f;
-      --line:rgba(255,255,255,.10);
-      --text:#eaf2ff; --muted:rgba(234,242,255,.70);
+      --bg:#0b1220;
+      --bg2:#111827;
+      --card:#081427;
+      --line:#334155;
+      --text:#e5e7eb;
       --accent:#ff7f27;
-      --shadow:0 10px 30px rgba(0,0,0,.35);
-      --radius:14px;
+      --green:#22c55e;
+      --blue:#3b82f6;
+      --red:#ef4444;
     }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:Arial, Helvetica, sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(1200px 500px at 15% -10%, rgba(255,127,39,.18), transparent 60%),
-        radial-gradient(900px 400px at 85% 0%, rgba(46,229,157,.10), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      min-height:100vh;
-    }
-
+    body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:#fff}
     .topbar{
-      position:sticky; top:0; z-index:20;
-      display:flex; align-items:center; justify-content:space-between;
-      padding:12px 18px;
-      background:linear-gradient(180deg, rgba(6,14,28,.92), rgba(6,14,28,.70));
-      border-bottom:1px solid var(--line);
-      backdrop-filter: blur(10px);
+      background:var(--bg2);
+      padding:10px 20px;
+      border-bottom:2px solid var(--accent);
+      display:flex;align-items:center;justify-content:space-between;gap:12px
     }
-    .brand{ display:flex; align-items:center; gap:12px; min-width:260px; }
-    .brand .dot{
-      width:14px;height:14px;border-radius:50%;
-      background:var(--accent);
-      box-shadow:0 0 0 4px rgba(255,127,39,.15);
-      flex:0 0 auto;
-    }
-    .brand .title{ display:flex; flex-direction:column; line-height:1.05; }
-    .brand .title .h1{ font-weight:900; letter-spacing:.5px; color:var(--accent); font-size:16px; }
-    .brand .title .h2{ font-size:12px; color:var(--muted); margin-top:2px; }
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand .dot{width:10px;height:10px;border-radius:999px;background:var(--accent);display:inline-block}
+    .brand h1{margin:0;font-size:18px;font-weight:900;color:var(--accent);line-height:1}
+    .brand small{display:block;color:#fff;opacity:.9;font-weight:700;margin-top:2px}
 
-    .tabs{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:0 10px; }
+    .actions{display:flex;align-items:center;gap:8px}
+    .mode{
+      font-size:12px;color:#fff;opacity:.95;
+      background:var(--bg);
+      border:1px solid var(--line);
+      padding:4px 10px;border-radius:999px;
+      white-space:nowrap;
+    }
+    .btn{
+      border:none;border-radius:10px;
+      padding:8px 12px;
+      font-weight:900;cursor:pointer;
+    }
+    .btn.sair{background:var(--red);color:#fff;display:none}
+    .btn.entrar{background:#0ea5e9;color:#06162f;display:none}
+
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .tab{
-      border:1px solid var(--line);
       background:rgba(255,255,255,.06);
-      color:var(--text);
-      padding:9px 12px;
-      border-radius:12px;
-      cursor:pointer;
-      font-weight:700;
-      font-size:12px;
-      transition:transform .05s ease, border-color .15s ease, background .15s ease;
-      user-select:none;
-    }
-    .tab:hover{ border-color:rgba(255,255,255,.18); }
-    .tab:active{ transform:translateY(1px); }
-    .tab.active{
-      border-color:rgba(255,127,39,.55);
-      box-shadow:0 0 0 3px rgba(255,127,39,.12);
-      background:rgba(255,127,39,.10);
-    }
-    .tab.hide{ display:none !important; }
-
-    .mode-pill{
-      min-width:240px;
-      display:flex; justify-content:flex-end; align-items:center; gap:8px;
-      font-size:12px; color:var(--muted);
-    }
-    .mode-pill b{
-      color:var(--text);
-      background:rgba(255,255,255,.07);
-      border:1px solid var(--line);
-      padding:6px 10px;
+      border:1px solid rgba(255,255,255,.10);
+      color:#fff;
+      padding:8px 12px;
       border-radius:999px;
+      cursor:pointer;
+      font-weight:900;
+      font-size:13px;
+    }
+    .tab.active{
+      color:var(--accent);
+      border-color:rgba(255,127,39,.55);
+      box-shadow:0 0 0 2px rgba(255,127,39,.10) inset;
+    }
+    .tab.disabled{
+      opacity:.35;
+      cursor:not-allowed;
     }
 
-    .frame-wrap{ padding:14px; }
-    iframe{
-      width:100%;
-      height:calc(100vh - 86px);
-      border:0;
-      border-radius:var(--radius);
-      background:rgba(0,0,0,.18);
-      box-shadow:var(--shadow);
+    .container{padding:14px}
+    .card{
+      background:rgba(8,20,39,.65);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
       overflow:hidden;
     }
-
-    /* GATE */
-    .gate{
-      position:fixed; inset:0;
-      background:rgba(0,0,0,.55);
-      display:flex; align-items:center; justify-content:center;
-      z-index:50; padding:18px;
-    }
-    .gate-card{
-      width:min(760px, 100%);
-      background:linear-gradient(180deg, rgba(10,22,40,.98), rgba(10,22,40,.92));
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:18px;
-      box-shadow:0 20px 60px rgba(0,0,0,.55);
-      padding:18px;
-    }
-    .gate-head{
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding:6px 6px 14px 6px;
-      border-bottom:1px solid rgba(255,255,255,.10);
-    }
-    .gate-head .left{ display:flex; align-items:center; gap:12px; }
-    .gate-head .badge{
-      width:14px;height:14px;border-radius:50%;
-      background:var(--accent);
-      box-shadow:0 0 0 4px rgba(255,127,39,.15);
-    }
-    .gate-head h3{ margin:0; color:var(--accent); font-size:18px; letter-spacing:.2px; }
-    .gate-head p{ margin:3px 0 0 0; color:var(--muted); font-size:12px; }
-
-    .gate-body{
-      padding:16px 6px 6px 6px;
-      display:grid; grid-template-columns:1fr 1fr; gap:12px;
-    }
-    @media (max-width:700px){
-      .gate-body{ grid-template-columns:1fr; }
-      iframe{ height:calc(100vh - 120px); }
-      .brand{ min-width:unset; }
-      .mode-pill{ min-width:unset; }
+    iframe{
+      width:100%;
+      height:calc(100vh - 130px);
+      border:0;
+      background:var(--bg);
     }
 
-    .gate-btn{
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      padding:14px 14px;
+    /* Tela inicial (Login) */
+    #telaInicial{
+      position:fixed;inset:0;z-index:9998;
+      display:flex;align-items:center;justify-content:center;
+      padding:16px;
+      background:rgba(0,0,0,.80);
+    }
+    #telaInicial .box{
+      width:min(560px,100%);
+      background:var(--card);
+      border:1px solid var(--line);
       border-radius:16px;
-      cursor:pointer;
-      text-align:left;
-      box-shadow:0 12px 30px rgba(0,0,0,.22);
+      padding:18px;
+      text-align:center;
     }
-    .gate-btn .t{ font-weight:900; font-size:14px; margin-bottom:6px; }
-    .gate-btn .d{ font-size:12px; color:var(--muted); line-height:1.3; }
-    .gate-btn:hover{ border-color:rgba(255,255,255,.20); }
-
-    .mini{ font-size:11px; color:var(--muted); padding:10px 6px 0 6px; }
+    #telaInicial .t1{color:var(--accent);font-weight:900;font-size:22px}
+    #telaInicial .t2{color:var(--text);margin-top:8px;font-weight:800}
+    #telaInicial .t3{color:var(--text);margin-top:18px;font-weight:900}
+    #telaInicial .row{display:flex;gap:14px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+    #telaInicial .btnJ{
+      min-width:220px;border:none;border-radius:12px;
+      padding:12px 14px;font-weight:900;cursor:pointer;
+      background:var(--green);color:#052e16
+    }
+    #telaInicial .btnD{
+      min-width:220px;border:none;border-radius:12px;
+      padding:12px 14px;font-weight:900;cursor:pointer;
+      background:var(--blue);color:#06162f
+    }
+    #telaInicial .msg{margin-top:12px;color:var(--text);font-size:12px;min-height:16px}
+    noscript{display:block;padding:12px;background:#b91c1c;color:#fff;font-weight:900;text-align:center}
   </style>
+
+  <script type="module" src="app/js/firebase-init.js?v=2"></script>
 </head>
 
 <body>
+  <noscript>Ative o JavaScript no navegador para usar o TESOURA.</noscript>
+
+  <!-- TELA INICIAL -->
+  <div id="telaInicial">
+    <div class="box">
+      <div class="t1">GRUPO TESOURA I</div>
+      <div class="t2">ESPORTE, FAMÍLIA E AMIZADE</div>
+      <div class="t3">APLICATIVO DO GRUPO</div>
+
+      <div class="row">
+        <button class="btnJ" id="btnEntrarJogadores">ENTRAR JOGADORES</button>
+        <button class="btnD" id="btnEntrarDiretoria">ENTRAR DIRETORIA</button>
+      </div>
+
+      <div class="msg" id="msgTelaInicial"></div>
+    </div>
+  </div>
+
   <div class="topbar">
     <div class="brand">
       <span class="dot"></span>
-      <div class="title">
-        <div class="h1">TESOURA - CONTROLE DO FUTEBOL</div>
-        <div class="h2">Aplicativo do grupo</div>
+      <div>
+        <h1>TESOURA - CONTROLE DO FUTEBOL</h1>
+        <small>Aplicativo do grupo</small>
       </div>
     </div>
 
@@ -172,61 +161,34 @@
       <button class="tab" data-panel="gols">GOLS</button>
     </div>
 
-    <div class="mode-pill">
-      <span>Modo:</span>
-      <b id="modoTxt">Bloqueado</b>
+    <div class="actions">
+      <div class="mode" id="modeBadge">Modo: Bloqueado</div>
+      <button class="btn sair" id="btnSair">SAIR</button>
     </div>
   </div>
 
-  <div class="frame-wrap">
-    <iframe id="frame" title="TESOURA"></iframe>
-  </div>
-
-  <div class="gate" id="gate">
-    <div class="gate-card">
-      <div class="gate-head">
-        <div class="left">
-          <span class="badge"></span>
-          <div>
-            <h3>GRUPO TESOURA I</h3>
-            <p>Esporte, família e amizade</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="gate-body">
-        <button class="gate-btn" id="btnEntrarJog">
-          <div class="t">ENTRAR JOGADORES</div>
-          <div class="d">Somente visual + baixar PDF. Sem edição.</div>
-        </button>
-
-        <button class="gate-btn" id="btnEntrarDir">
-          <div class="t">ENTRAR DIRETORIA</div>
-          <div class="d">Modo completo (alguns usuários sem acesso ao Caixa).</div>
-        </button>
-      </div>
-
-      <div class="mini">
-        * As senhas ficam configuradas aqui no <b>frontend/index.html</b>.
-      </div>
+  <div class="container">
+    <div class="card">
+      <iframe id="frame" title="TESOURA"></iframe>
     </div>
   </div>
 
   <script>
-    (() => {
-      // ====== SENHAS (CONFORME VOCÊ PASSOU) ======
-      const PASS_JOGADORES = "TESOURA2026";
+    (function () {
+      // =========================
+      // SENHAS (AJUSTE AQUI)
+      // =========================
+      const PIN_JOGADORES = "TESOURA2026";
 
-      const PASS_DIRETORIA_FULL = new Set(["1baidec", "2thiago"]);
-      const PASS_DIRETORIA_SEM_CAIXA = new Set(["3love", "4le", "5titi"]);
+      // Diretoria (tudo)
+      const PINS_DIR_FULL = new Set(["1baidec", "2thiago"]);
 
-      const frame = document.getElementById("frame");
-      const gate  = document.getElementById("gate");
-      const modoTxt = document.getElementById("modoTxt");
-      const tabs  = [...document.querySelectorAll(".tab")];
-      const tabCaixa = document.getElementById("tabCaixa");
+      // Diretoria (sem Caixa)
+      const PINS_DIR_SEM_CAIXA = new Set(["3love", "4le", "5titi"]);
 
-      // PAINÉIS (SEM BANCO DE DADOS)
+      // =========================
+      // CONFIG / MAPA DE PAINÉIS
+      // =========================
       const panels = {
         jogadores: "panels/jogadores.html",
         presenca_escalacao: "panels/presenca_escalacao.html",
@@ -236,141 +198,211 @@
         gols: "panels/gols.html",
       };
 
-      // PERFIL ATUAL
-      let perfil = {
-        tipo: "bloqueado",            // bloqueado | jogadores | diretoria
-        noCaixa: true,                // true = sem caixa
-        label: "Bloqueado"
+      const frame = document.getElementById("frame");
+      const tabs = Array.from(document.querySelectorAll(".tab"));
+      const telaInicial = document.getElementById("telaInicial");
+      const msgTelaInicial = document.getElementById("msgTelaInicial");
+      const modeBadge = document.getElementById("modeBadge");
+      const btnSair = document.getElementById("btnSair");
+      const tabCaixa = document.getElementById("tabCaixa");
+
+      function setBadge(txt){ modeBadge.textContent = txt; }
+      function showTelaInicial(v){ telaInicial.style.display = v ? "flex" : "none"; }
+      function cacheBust(url){
+        const sep = url.includes("?") ? "&" : "?";
+        return url + sep + "v=" + Date.now();
+      }
+
+      // Estado (salvo)
+      const state = {
+        role: localStorage.getItem("TESOURA_ROLE") || "bloqueado", // jogador | diretoria_full | diretoria_sem_caixa | bloqueado
       };
+
+      function persist(){
+        localStorage.setItem("TESOURA_ROLE", state.role);
+      }
+
+      function applyRoleUI(){
+        // Botão SAIR aparece somente logado
+        const logado = state.role !== "bloqueado";
+        btnSair.style.display = logado ? "inline-block" : "none";
+
+        if(state.role === "jogador") setBadge("Modo: Jogadores (visual)");
+        else if(state.role === "diretoria_full") setBadge("Modo: Diretoria");
+        else if(state.role === "diretoria_sem_caixa") setBadge("Modo: Diretoria (sem Caixa)");
+        else setBadge("Modo: Bloqueado");
+
+        // Caixa: esconder/desabilitar quando for "sem caixa"
+        const semCaixa = state.role === "diretoria_sem_caixa";
+        if(semCaixa){
+          tabCaixa.classList.add("disabled");
+          tabCaixa.setAttribute("aria-disabled","true");
+        }else{
+          tabCaixa.classList.remove("disabled");
+          tabCaixa.removeAttribute("aria-disabled");
+        }
+      }
 
       function setActive(key){
         tabs.forEach(b => b.classList.toggle("active", b.dataset.panel === key));
       }
 
-      function aplicarTabs(){
-        // esconde/mostra CAIXA
-        if(perfil.noCaixa){
-          tabCaixa.classList.add("hide");
-        }else{
-          tabCaixa.classList.remove("hide");
-        }
-      }
-
       function openPanel(key){
-        if(perfil.tipo === "bloqueado") return;
+        if(state.role === "bloqueado"){
+          showTelaInicial(true);
+          msgTelaInicial.textContent = "Faça login para entrar.";
+          return;
+        }
 
-        // bloqueia caixa quando não permitido
-        if(key === "caixa" && perfil.noCaixa){
-          key = "jogadores";
+        if(state.role === "diretoria_sem_caixa" && key === "caixa"){
+          alert("Acesso ao CAIXA bloqueado para este usuário.");
+          return;
         }
 
         const url = panels[key] || panels.jogadores;
         setActive(key);
-        frame.src = url + "?v=" + Date.now();
+        frame.src = cacheBust(url);
         location.hash = "#" + key;
       }
 
-      function aplicarModoNoIframe(){
-        if(perfil.tipo !== "jogadores") return;
-
+      // ====== BLOQUEIO (Jogadores: somente visualizar + baixar PDF) ======
+      function travarIframeJogador(iframe){
         try{
-          const doc = frame.contentDocument;
-          if(!doc) return;
+          const doc = iframe.contentDocument || iframe.contentWindow?.document;
+          if(!doc || !doc.body) return;
 
-          // limpa lock antigo
-          const old = doc.getElementById("TESOURA_MODE_LOCK");
-          if(old) old.remove();
+          // Banner
+          let banner = doc.getElementById("TESOURA_JOGADOR_BANNER");
+          if(!banner){
+            banner = doc.createElement("div");
+            banner.id = "TESOURA_JOGADOR_BANNER";
+            banner.textContent = "MODO JOGADOR: SOMENTE VISUALIZAÇÃO (PDF LIBERADO)";
+            banner.style.cssText =
+              "position:fixed;top:0;left:0;right:0;z-index:999999;" +
+              "background:#b91c1c;color:#fff;font-weight:900;" +
+              "padding:8px 10px;text-align:center;font-size:12px;";
+            doc.body.appendChild(banner);
+            doc.body.style.paddingTop = "40px";
+          }
 
-          // 1) desabilita campos de digitação
-          doc.querySelectorAll("input, select, textarea").forEach(el => {
-            el.setAttribute("disabled", "disabled");
-          });
-
-          // 2) desabilita botões de edição (mas mantém baixar pdf/carregar/atualizar)
-          const KEEP = ["BAIXAR", "PDF", "CARREGAR", "ATUALIZAR", "HISTÓRICO", "LISTA", "RECARREGAR"];
-          const BLOCK = ["SALVAR", "EXCLUIR", "EDITAR", "CANCELAR", "REMOVER", "APAGAR"];
-
-          doc.querySelectorAll("button").forEach(btn => {
-            const t = (btn.innerText || "").toUpperCase().trim();
-            const keep = KEEP.some(k => t.includes(k));
-            const block = BLOCK.some(k => t.includes(k));
-            if(block && !keep){
-              btn.setAttribute("disabled", "disabled");
-              btn.style.opacity = "0.85";
-              btn.style.filter = "grayscale(.35)";
-            }
-          });
-
-          // marcador (opcional)
-          const st = doc.createElement("style");
-          st.id = "TESOURA_MODE_LOCK";
-          st.textContent = ``;
-          doc.head.appendChild(st);
+          // CSS trava tudo, mas libera botões comuns de PDF
+          let style = doc.getElementById("TESOURA_JOGADOR_LOCK");
+          if(!style){
+            style = doc.createElement("style");
+            style.id = "TESOURA_JOGADOR_LOCK";
+            style.textContent = `
+              button, input, select, textarea, a, [role="button"], [onclick]{
+                pointer-events:none !important;
+                opacity:0.55 !important;
+                cursor:not-allowed !important;
+              }
+              /* libera PDF */
+              #btnPdf, #btnPDF, .btnPdf, .btnPDF,
+              button[id*="Pdf" i], button[id*="PDF" i],
+              button[class*="Pdf" i], button[class*="PDF" i],
+              button[data-action="pdf"], button[data-action="PDF"]{
+                pointer-events:auto !important;
+                opacity:1 !important;
+                cursor:pointer !important;
+              }
+            `;
+            (doc.head || doc.documentElement).appendChild(style);
+          }
         }catch(e){}
       }
 
-      frame.addEventListener("load", () => {
-        aplicarModoNoIframe();
-      });
+      function onFrameLoad(){
+        if(state.role === "jogador"){
+          travarIframeJogador(frame);
+        }
+      }
+      frame.addEventListener("load", onFrameLoad);
 
-      tabs.forEach(b => b.addEventListener("click", () => openPanel(b.dataset.panel)));
-
+      // ====== LOGIN ======
       function pedirSenha(titulo){
-        const s = prompt(titulo);
-        if(s === null) return null;
-        return String(s).trim();
+        const s = (prompt(titulo) || "").trim();
+        return s;
       }
 
-      function loginPorSenha(s){
-        if(!s) return false;
-
-        if(s === PASS_JOGADORES){
-          perfil = { tipo:"jogadores", noCaixa:true, label:"Jogadores" };
-          return true;
+      function loginJogadores(){
+        msgTelaInicial.textContent = "";
+        const pin = pedirSenha("Digite a senha (JOGADORES):");
+        if(!pin){
+          msgTelaInicial.textContent = "Senha vazia.";
+          return;
         }
-
-        if(PASS_DIRETORIA_FULL.has(s)){
-          perfil = { tipo:"diretoria", noCaixa:false, label:"Diretoria" };
-          return true;
+        if(pin !== PIN_JOGADORES){
+          msgTelaInicial.textContent = "Senha incorreta.";
+          alert("Senha incorreta (JOGADORES).");
+          return;
         }
-
-        if(PASS_DIRETORIA_SEM_CAIXA.has(s)){
-          perfil = { tipo:"diretoria", noCaixa:true, label:"Diretoria (sem Caixa)" };
-          return true;
-        }
-
-        return false;
+        state.role = "jogador";
+        persist();
+        applyRoleUI();
+        showTelaInicial(false);
+        openPanel((location.hash || "").replace("#","") || "jogadores");
       }
 
-      function entrar(tituloPrompt){
-        const s = pedirSenha(tituloPrompt);
-        if(s === null) return;
-
-        if(!loginPorSenha(s)){
-          alert("Senha inválida.");
+      function loginDiretoria(){
+        msgTelaInicial.textContent = "";
+        const pin = pedirSenha("Digite a senha (DIRETORIA):");
+        if(!pin){
+          msgTelaInicial.textContent = "Senha vazia.";
           return;
         }
 
-        modoTxt.textContent = perfil.label;
-        aplicarTabs();
-        gate.style.display = "none";
+        if(PINS_DIR_FULL.has(pin)){
+          state.role = "diretoria_full";
+        }else if(PINS_DIR_SEM_CAIXA.has(pin)){
+          state.role = "diretoria_sem_caixa";
+        }else{
+          msgTelaInicial.textContent = "Senha incorreta.";
+          alert("Senha incorreta (DIRETORIA).");
+          return;
+        }
 
+        persist();
+        applyRoleUI();
+        showTelaInicial(false);
+        openPanel((location.hash || "").replace("#","") || "jogadores");
+      }
+
+      function logout(){
+        state.role = "bloqueado";
+        persist();
+        applyRoleUI();
+        showTelaInicial(true);
+        msgTelaInicial.textContent = "Você saiu. Faça login novamente.";
+        frame.src = "about:blank";
+        setActive("");
+        location.hash = "";
+      }
+
+      // ====== EVENTOS ======
+      document.getElementById("btnEntrarJogadores").addEventListener("click", loginJogadores);
+      document.getElementById("btnEntrarDiretoria").addEventListener("click", loginDiretoria);
+      btnSair.addEventListener("click", logout);
+
+      tabs.forEach(b => b.addEventListener("click", () => {
+        if(b.classList.contains("disabled")) return;
+        openPanel(b.dataset.panel);
+      }));
+
+      // ====== START ======
+      applyRoleUI();
+
+      if(state.role === "bloqueado"){
+        showTelaInicial(true);
+        msgTelaInicial.textContent = "";
+        frame.src = "about:blank";
+      }else{
+        showTelaInicial(false);
         const start = (location.hash || "").replace("#","") || "jogadores";
         openPanel(start);
       }
-
-      document.getElementById("btnEntrarJog").addEventListener("click", () => {
-        entrar("Digite a senha (JOGADORES):");
-      });
-
-      document.getElementById("btnEntrarDir").addEventListener("click", () => {
-        entrar("Digite a senha (DIRETORIA):");
-      });
-
-      // estado inicial
-      modoTxt.textContent = "Bloqueado";
-      aplicarTabs();
     })();
   </script>
+
+  <script src="app/js/app.js?v=1" defer></script>
 </body>
 </html>
