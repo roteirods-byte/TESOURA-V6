@@ -1,0 +1,16 @@
+{
+  "name": "tesoura-api",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "NODE_ENV=production node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "better-sqlite3": "^11.5.0",
+    "cors": "^2.8.5"
+  }
+}
