@@ -9,17 +9,90 @@
   <style>
     .wrap{ padding:14px; }
     .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    button, select{
+      padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+      background:rgba(255,255,255,.10); color:var(--text); cursor:pointer; font-weight:700;
+    }
+    select{ background:rgba(255,255,255,.06); }
     h1{ margin:0 0 10px 0; color:var(--accent); }
-    p{ color:var(--muted); margin:0; }
+    .box{ margin-top:12px; font-family:monospace; font-size:13px; white-space:pre-wrap; color:var(--text); }
+    #status{ margin-top:10px;color:var(--muted); }
+
+    @media print{
+      .row, button, select { display:none !important; }
+      .wrap{ padding:0 !important; }
+      .card{ border:none !important; }
+      h1{ color:#000 !important; }
+      #status{ color:#000 !important; }
+      #conteudo{ color:#000 !important; }
+      body{ background:#fff !important; color:#000 !important; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <h1>GOLS (V6)</h1>
-      <p>Este painel vai usar API (/api/gols).</p>
-      <p>Controle anual e ranking ficam no BACKEND.</p>
+
+      <div class="row">
+        <select id="histSel">
+          <option value="">HISTÓRICO (selecione)</option>
+        </select>
+        <button id="btnHistAtualizar">ATUALIZAR HISTÓRICO</button>
+        <button id="btnHistCarregar">CARREGAR SELECIONADO</button>
+        <button id="btnPdf">BAIXAR PDF (ATUAL)</button>
+      </div>
+
+      <div id="status"></div>
+
+      <div id="conteudo" class="box">
+Este painel vai usar API:
+- /api/gols
+
+Regras:
+- Controle ANUAL.
+- Ranking/artilheiros e totais.
+      </div>
     </div>
   </div>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const conteudoEl = document.getElementById("conteudo");
+
+    async function atualizarHistorico(){
+      const r = await fetch("/api/gols/historico");
+      const resp = await r.json();
+      const sel = document.getElementById("histSel");
+      sel.innerHTML = `<option value="">HISTÓRICO (selecione)</option>`;
+      if(!resp.ok){ statusEl.textContent = "ERRO: histórico"; return; }
+      resp.items.forEach(it => {
+        const opt = document.createElement("option");
+        opt.value = it.ref;
+        opt.textContent = it.ref;
+        sel.appendChild(opt);
+      });
+      statusEl.textContent = "Histórico atualizado";
+    }
+
+    async function carregarDoHistorico(){
+      const ref = document.getElementById("histSel").value;
+      if(!ref){ statusEl.textContent = "Selecione um item do histórico"; return; }
+      statusEl.textContent = "Carregando histórico...";
+      const r = await fetch(`/api/gols/carregar?ref=${encodeURIComponent(ref)}`);
+      const resp = await r.json();
+      if(!resp.ok){ statusEl.textContent = "ERRO: " + (resp.error || "falha"); return; }
+
+      conteudoEl.textContent = JSON.stringify(resp.data, null, 2);
+      statusEl.textContent = "OK: histórico carregado";
+    }
+
+    document.getElementById("btnHistAtualizar").onclick = atualizarHistorico;
+    document.getElementById("btnHistCarregar").onclick = carregarDoHistorico;
+    document.getElementById("btnPdf").onclick = () => window.print();
+
+    atualizarHistorico();
+  </script>
 </body>
 </html>
