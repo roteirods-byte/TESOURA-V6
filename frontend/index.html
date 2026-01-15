@@ -3,37 +3,305 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TESOURA</title>
-  <link rel="stylesheet" href="app/css/ui.css?v=1" />
-  <script type="module" src="app/js/firebase-init.js?v=2"></script>
+  <title>TESOURA - Controle do Futebol</title>
+
+  <!-- EVITA CACHE (importante em revisão) -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <style>
+    :root{
+      --bg1:#07101f;
+      --bg2:#0b1b2f;
+      --panel:#0a1628;
+      --panel2:#0b2038;
+      --line:rgba(255,255,255,.10);
+      --text:#eaf2ff;
+      --muted:rgba(234,242,255,.70);
+      --accent:#ff7f27;
+      --accent2:#ffb26a;
+      --ok:#2ee59d;
+      --btn:#123455;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:14px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial, Helvetica, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 500px at 15% -10%, rgba(255,127,39,.18), transparent 60%),
+        radial-gradient(900px 400px at 85% 0%, rgba(46,229,157,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      min-height:100vh;
+    }
+
+    /* TOPBAR */
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:20;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:12px 18px;
+      background:linear-gradient(180deg, rgba(6,14,28,.92), rgba(6,14,28,.70));
+      border-bottom:1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:260px;
+    }
+    .brand .dot{
+      width:14px;height:14px;border-radius:50%;
+      background:var(--accent);
+      box-shadow:0 0 0 4px rgba(255,127,39,.15);
+      flex:0 0 auto;
+    }
+    .brand .title{
+      display:flex;
+      flex-direction:column;
+      line-height:1.05;
+    }
+    .brand .title .h1{
+      font-weight:900;
+      letter-spacing:.5px;
+      color:var(--accent);
+      font-size:16px;
+    }
+    .brand .title .h2{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:2px;
+    }
+
+    .tabs{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      justify-content:center;
+      padding:0 10px;
+    }
+    .tab{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      padding:9px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:700;
+      font-size:12px;
+      transition:transform .05s ease, border-color .15s ease, background .15s ease;
+      user-select:none;
+    }
+    .tab:hover{ border-color:rgba(255,255,255,.18); }
+    .tab:active{ transform:translateY(1px); }
+    .tab.active{
+      border-color:rgba(255,127,39,.55);
+      box-shadow:0 0 0 3px rgba(255,127,39,.12);
+      background:rgba(255,127,39,.10);
+    }
+
+    .mode-pill{
+      min-width:240px;
+      display:flex;
+      justify-content:flex-end;
+      align-items:center;
+      gap:8px;
+      font-size:12px;
+      color:var(--muted);
+    }
+    .mode-pill b{
+      color:var(--text);
+      background:rgba(255,255,255,.07);
+      border:1px solid var(--line);
+      padding:6px 10px;
+      border-radius:999px;
+    }
+
+    /* IFRAME */
+    .frame-wrap{
+      padding:14px;
+    }
+    iframe{
+      width:100%;
+      height:calc(100vh - 86px);
+      border:0;
+      border-radius:var(--radius);
+      background:rgba(0,0,0,.18);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    /* GATE (TELA INICIAL) */
+    .gate{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.55);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:50;
+      padding:18px;
+    }
+    .gate-card{
+      width:min(760px, 100%);
+      background:linear-gradient(180deg, rgba(10,22,40,.98), rgba(10,22,40,.92));
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.55);
+      padding:18px;
+    }
+    .gate-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:6px 6px 14px 6px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+    }
+    .gate-head .left{
+      display:flex;align-items:center;gap:12px;
+    }
+    .gate-head .badge{
+      width:14px;height:14px;border-radius:50%;
+      background:var(--accent);
+      box-shadow:0 0 0 4px rgba(255,127,39,.15);
+    }
+    .gate-head h3{
+      margin:0;
+      color:var(--accent);
+      font-size:18px;
+      letter-spacing:.2px;
+    }
+    .gate-head p{
+      margin:3px 0 0 0;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .gate-body{
+      padding:16px 6px 6px 6px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width:700px){
+      .gate-body{ grid-template-columns:1fr; }
+      iframe{ height:calc(100vh - 120px); }
+      .brand{ min-width:unset; }
+      .mode-pill{ min-width:unset; }
+    }
+
+    .gate-btn{
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      padding:14px 14px;
+      border-radius:16px;
+      cursor:pointer;
+      text-align:left;
+      box-shadow:0 12px 30px rgba(0,0,0,.22);
+    }
+    .gate-btn .t{
+      font-weight:900;
+      font-size:14px;
+      margin-bottom:6px;
+    }
+    .gate-btn .d{
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.3;
+    }
+    .gate-btn.jog{ border-color:rgba(46,229,157,.22); }
+    .gate-btn.dir{ border-color:rgba(255,127,39,.22); }
+    .gate-btn:hover{ border-color:rgba(255,255,255,.20); }
+
+    .mini{
+      font-size:11px;color:var(--muted);
+      padding:10px 6px 0 6px;
+    }
+  </style>
 </head>
+
 <body>
   <div class="topbar">
     <div class="brand">
       <span class="dot"></span>
-      <div>
-        <h1>TESOURA</h1>
-        <small>Controle do Futebol</small>
+      <div class="title">
+        <div class="h1">TESOURA - CONTROLE DO FUTEBOL</div>
+        <div class="h2">Aplicativo do grupo</div>
       </div>
     </div>
 
     <div class="tabs" id="tabs">
-      <button class="tab" data-panel="jogadores">Jogadores</button>
-      <button class="tab" data-panel="presenca_escalacao">Presença / Escalação</button>
-      <button class="tab" data-panel="controle_geral">Controle Geral</button>
-      <button class="tab" data-panel="mensalidade">Mensalidade</button>
-      <button class="tab" data-panel="caixa">Caixa</button>
-      <button class="tab" data-panel="gols">Gols</button>
+      <button class="tab" data-panel="jogadores">JOGADORES</button>
+      <button class="tab" data-panel="presenca_escalacao">PRESENÇA / ESCALAÇÃO</button>
+      <button class="tab" data-panel="controle_geral">CONTROLE GERAL</button>
+      <button class="tab" data-panel="mensalidade">MENSALIDADE</button>
+      <button class="tab" data-panel="caixa">CAIXA</button>
+      <button class="tab" data-panel="gols">GOLS</button>
+    </div>
+
+    <div class="mode-pill">
+      <span>Modo:</span>
+      <b id="modoTxt">Bloqueado</b>
     </div>
   </div>
 
-  <iframe id="frame" class="frame" title="TESOURA"></iframe>
+  <div class="frame-wrap">
+    <iframe id="frame" title="TESOURA"></iframe>
+  </div>
+
+  <!-- TELA INICIAL / SENHA -->
+  <div class="gate" id="gate">
+    <div class="gate-card">
+      <div class="gate-head">
+        <div class="left">
+          <span class="badge"></span>
+          <div>
+            <h3>GRUPO TESOURA I</h3>
+            <p>Esporte, família e amizade</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="gate-body">
+        <button class="gate-btn jog" id="btnEntrarJog">
+          <div class="t">ENTRAR JOGADORES</div>
+          <div class="d">Modo visual (travado): não permite editar nem excluir.</div>
+        </button>
+
+        <button class="gate-btn dir" id="btnEntrarDir">
+          <div class="t">ENTRAR DIRETORIA</div>
+          <div class="d">Modo completo: permite salvar, editar e excluir.</div>
+        </button>
+      </div>
+
+      <div class="mini">
+        * Ajuste as senhas no próprio arquivo <b>frontend/index.html</b> (2 linhas no JS).
+      </div>
+    </div>
+  </div>
 
   <script>
     (() => {
-      const frame = document.getElementById("frame");
-      const tabs = [...document.querySelectorAll(".tab")];
+      // ====== CONFIG (edite só aqui) ======
+      const PIN_JOGADORES  = "1234"; // <- TROQUE AQUI
+      const PIN_DIRETORIA  = "5678"; // <- TROQUE AQUI
 
+      const frame = document.getElementById("frame");
+      const gate  = document.getElementById("gate");
+      const modoTxt = document.getElementById("modoTxt");
+      const tabs  = [...document.querySelectorAll(".tab")];
+
+      // NÃO EXISTE MAIS "BANCO DE DADOS"
       const panels = {
         jogadores: "panels/jogadores.html",
         presenca_escalacao: "panels/presenca_escalacao.html",
@@ -42,6 +310,8 @@
         caixa: "panels/caixa.html",
         gols: "panels/gols.html",
       };
+
+      let modo = "bloqueado"; // bloqueado | jogadores | diretoria
 
       function setActive(key){
         tabs.forEach(b => b.classList.toggle("active", b.dataset.panel === key));
@@ -54,13 +324,69 @@
         location.hash = "#" + key;
       }
 
-      tabs.forEach(b => b.addEventListener("click", () => openPanel(b.dataset.panel)));
+      function aplicarModoNoIframe(){
+        try{
+          const doc = frame.contentDocument;
+          if(!doc) return;
 
-      const start = (location.hash || "").replace("#","") || "jogadores";
-      openPanel(start);
+          // remove qualquer bloqueio anterior
+          const old = doc.getElementById("TESOURA_MODE_LOCK");
+          if(old) old.remove();
+
+          if(modo === "jogadores"){
+            const st = doc.createElement("style");
+            st.id = "TESOURA_MODE_LOCK";
+            st.textContent = `
+              button, input, select, textarea {
+                pointer-events: none !important;
+                opacity: .85 !important;
+                filter: grayscale(.35) !important;
+              }
+              a { pointer-events: none !important; }
+            `;
+            doc.head.appendChild(st);
+          }
+        }catch(e){
+          // se algum painel for cross-origin (não deve), ignora
+        }
+      }
+
+      frame.addEventListener("load", () => {
+        aplicarModoNoIframe();
+      });
+
+      tabs.forEach(b => b.addEventListener("click", () => {
+        if(modo === "bloqueado") return; // não navega sem entrar
+        openPanel(b.dataset.panel);
+      }));
+
+      function pedirSenha(titulo, pinCorreto){
+        const s = prompt(titulo);
+        if(s === null) return false;
+        return String(s).trim() === String(pinCorreto).trim();
+      }
+
+      document.getElementById("btnEntrarJog").addEventListener("click", () => {
+        if(!pedirSenha("Digite a senha (JOGADORES):", PIN_JOGADORES)) return;
+        modo = "jogadores";
+        modoTxt.textContent = "Jogadores";
+        gate.style.display = "none";
+        const start = (location.hash || "").replace("#","") || "jogadores";
+        openPanel(start);
+      });
+
+      document.getElementById("btnEntrarDir").addEventListener("click", () => {
+        if(!pedirSenha("Digite a senha (DIRETORIA):", PIN_DIRETORIA)) return;
+        modo = "diretoria";
+        modoTxt.textContent = "Diretoria";
+        gate.style.display = "none";
+        const start = (location.hash || "").replace("#","") || "jogadores";
+        openPanel(start);
+      });
+
+      // trava inicial
+      modoTxt.textContent = "Bloqueado";
     })();
   </script>
-
-  <script src="app/js/app.js?v=1" defer></script>
 </body>
 </html>
