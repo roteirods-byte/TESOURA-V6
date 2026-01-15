@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tesoura - V6</title>
+
+  <!-- Layout fixo (vamos criar esses arquivos nos próximos itens) -->
+  <link rel="stylesheet" href="app/css/tokens.css" />
+  <link rel="stylesheet" href="app/css/ui.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">TESOURA — V6</div>
+
+    <nav class="tabs">
+      <button class="tab active" data-panel="jogadores">JOGADORES</button>
+      <button class="tab" data-panel="presenca_escalacao">PRESENÇA / ESCALAÇÃO</button>
+      <button class="tab" data-panel="controle_geral">CONTROLE GERAL</button>
+      <button class="tab" data-panel="mensalidade">MENSALIDADE</button>
+      <button class="tab" data-panel="caixa">CAIXA</button>
+      <button class="tab" data-panel="gols">GOLS</button>
+      <button class="tab" data-panel="banco_dados">BANCO DE DADOS</button>
+    </nav>
+  </header>
+
+  <main class="main">
+    <iframe
+      id="panelFrame"
+      class="panelFrame"
+      src="panels/jogadores.html"
+      title="Painel"
+      loading="eager"
+    ></iframe>
+  </main>
+
+  <script>
+    const frame = document.getElementById("panelFrame");
+    const tabs = Array.from(document.querySelectorAll(".tab"));
+
+    function setActive(btn) {
+      tabs.forEach(t => t.classList.remove("active"));
+      btn.classList.add("active");
+    }
+
+    tabs.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const panel = btn.getAttribute("data-panel");
+        frame.src = `panels/${panel}.html`;
+        setActive(btn);
+      });
+    });
+  </script>
+</body>
+</html>
