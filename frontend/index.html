@@ -3,72 +3,64 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TESOURA - V6</title>
-
-  <!-- Layout oficial (travado aqui) -->
-  <link rel="stylesheet" href="app/css/tesoura-theme.css" />
-
-  <style>
-    /* só para o frame ocupar a tela (não mexe no layout do tema) */
-    .frame-wrap{ padding:14px; }
-    iframe{
-      width:100%;
-      height: calc(100vh - 74px);
-      border:0;
-      border-radius: var(--radius);
-      background: transparent;
-    }
-  </style>
+  <title>TESOURA</title>
+  <link rel="stylesheet" href="app/css/ui.css?v=1" />
+  <script type="module" src="app/js/firebase-init.js?v=2"></script>
 </head>
-
 <body>
   <div class="topbar">
-    <div class="brand">TESOURA — V6</div>
+    <div class="brand">
+      <span class="dot"></span>
+      <div>
+        <h1>TESOURA</h1>
+        <small>Controle do Futebol</small>
+      </div>
+    </div>
 
     <div class="tabs" id="tabs">
-      <a class="tab" href="#jogadores" data-panel="jogadores">JOGADORES</a>
-      <a class="tab" href="#presenca" data-panel="presenca">PRESENÇA / ESCALAÇÃO</a>
-      <a class="tab" href="#controle" data-panel="controle">CONTROLE GERAL</a>
-      <a class="tab" href="#mensalidade" data-panel="mensalidade">MENSALIDADE</a>
-      <a class="tab" href="#caixa" data-panel="caixa">CAIXA</a>
-      <a class="tab" href="#gols" data-panel="gols">GOLS</a>
+      <button class="tab" data-panel="jogadores">Jogadores</button>
+      <button class="tab" data-panel="presenca_escalacao">Presença / Escalação</button>
+      <button class="tab" data-panel="controle_geral">Controle Geral</button>
+      <button class="tab" data-panel="mensalidade">Mensalidade</button>
+      <button class="tab" data-panel="caixa">Caixa</button>
+      <button class="tab" data-panel="gols">Gols</button>
     </div>
   </div>
 
-  <div class="frame-wrap">
-    <iframe id="frame" title="TESOURA"></iframe>
-  </div>
+  <iframe id="frame" class="frame" title="TESOURA"></iframe>
 
   <script>
-    const ROUTES = {
-      jogadores: "panels/jogadores.html",
-      presenca: "panels/presenca_escalacao.html",
-      controle: "panels/controle_geral.html",
-      mensalidade: "panels/mensalidade.html",
-      caixa: "panels/caixa.html",
-      gols: "panels/gols.html"
-    };
+    (() => {
+      const frame = document.getElementById("frame");
+      const tabs = [...document.querySelectorAll(".tab")];
 
-    function getPanelFromHash(){
-      const h = (location.hash || "").replace("#", "").trim();
-      return ROUTES[h] ? h : "jogadores";
-    }
+      const panels = {
+        jogadores: "panels/jogadores.html",
+        presenca_escalacao: "panels/presenca_escalacao.html",
+        controle_geral: "panels/controle_geral.html",
+        mensalidade: "panels/mensalidade.html",
+        caixa: "panels/caixa.html",
+        gols: "panels/gols.html",
+      };
 
-    function setActiveTab(panel){
-      document.querySelectorAll(".tab").forEach(a => {
-        a.classList.toggle("active", a.dataset.panel === panel);
-      });
-    }
+      function setActive(key){
+        tabs.forEach(b => b.classList.toggle("active", b.dataset.panel === key));
+      }
 
-    function load(){
-      constه
-      const panel = getPanelFromHash();
-      document.getElementById("frame").src = ROUTES[panel];
-      setActiveTab(panel);
-    }
+      function openPanel(key){
+        const url = panels[key] || panels.jogadores;
+        setActive(key);
+        frame.src = url + "?v=" + Date.now();
+        location.hash = "#" + key;
+      }
 
-    window.addEventListener("hashchange", load);
-    load();
+      tabs.forEach(b => b.addEventListener("click", () => openPanel(b.dataset.panel)));
+
+      const start = (location.hash || "").replace("#","") || "jogadores";
+      openPanel(start);
+    })();
   </script>
+
+  <script src="app/js/app.js?v=1" defer></script>
 </body>
 </html>
