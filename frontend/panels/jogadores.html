@@ -171,6 +171,53 @@ input, select{
 
       *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     }
+/* ===== PADRAO TAMANHOS (ESQUEMA JORGE) ===== */
+:root{
+  --w-camisa:70px;
+  --w-apelido:140px;
+  --w-nome:220px;
+  --w-nasc:110px;
+  --w-celular:140px;
+  --w-posicao:60px;
+  --w-hab:60px;
+  --w-vel:60px;
+  --w-mov:60px;
+  --w-pontos:60px;
+  --w-btn:110px;
+}
+
+/* inputs menores/compactos */
+input, select{
+  height:34px;
+  padding:6px 10px;
+  border-radius:10px;
+}
+
+/* FORM em grid compacto */
+.formgrid{
+  display:grid;
+  grid-template-columns:
+    var(--w-camisa) var(--w-nome) var(--w-apelido) var(--w-nasc)
+    var(--w-celular) var(--w-posicao) var(--w-hab) var(--w-vel)
+    var(--w-mov) var(--w-pontos) var(--w-btn) var(--w-btn) var(--w-btn);
+  gap:10px 12px;
+  align-items:end;
+}
+
+/* caixas ocupam 100% do “bloco” */
+.formgrid > .f > input,
+.formgrid > .f > select{ width:100%; }
+
+/* aniversário compacto */
+#bdayBox table{ width:auto; table-layout:fixed; }
+#bdayBox th:nth-child(1), #bdayBox td:nth-child(1){ width:100px; }
+#bdayBox th:nth-child(2), #bdayBox td:nth-child(2){ width:60px; }
+#bdayBox th:nth-child(3), #bdayBox td:nth-child(3){ width:60px; }
+
+/* responsivo simples */
+@media (max-width: 1200px){
+  .formgrid{ grid-template-columns: 1fr 1fr; }
+}
 
 <style>
   /* === AJUSTE TAMANHO CAMPOS (REV) === */
@@ -251,7 +298,7 @@ input, select{
 
           <div>
             <label>Posição (Z/L/M/A)</label>
-            <input id="posicao" placeholder="Z / L / M / A" maxlength="1" />
+            <input id="posicao" placeholder="Z/L/M/A" maxlength="1" />
           </div>
 
           <div>
