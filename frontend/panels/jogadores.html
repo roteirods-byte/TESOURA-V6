@@ -3,103 +3,538 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Jogadores</title>
+  <title>TESOURA - JOGADORES</title>
+
   <link rel="stylesheet" href="../app/css/tokens.css" />
   <link rel="stylesheet" href="../app/css/ui.css" />
-  <style>
-    .wrap{ padding:14px; }
-    .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
-    input{ padding:10px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--text); }
-    button{ padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.10); color:var(--text); cursor:pointer; font-weight:700; }
-    h1{ margin:0 0 10px 0; color:var(--accent); }
-    .list{ margin-top:12px; font-family:monospace; font-size:13px; white-space:pre-wrap; }
-    @media print{
-  .row, button, input, select { display:none !important; }
-  .wrap{ padding:0 !important; }
-  .card{ border:none !important; }
-  h1{ color:#000 !important; }
-  #status{ color:#000 !important; }
-  #list{ color:#000 !important; }
-  body{ background:#fff !important; color:#000 !important; }
-}
 
+  <style>
+    body{margin:0;background:#0f172a;color:#f9fafb;font-family:Arial,sans-serif;font-size:12px}
+    .container{max-width:1400px;margin:0 auto;padding:16px}
+    h1{margin:6px 0 14px;color:#f97316;text-transform:uppercase;letter-spacing:.5px}
+    .card{background:#020617;border-radius:12px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.35);border:1px solid #111827;margin-bottom:12px}
+
+    .grid-form{
+      display:grid;
+      grid-template-columns: 90px 170px 1.6fr 140px 140px 120px;
+      gap:10px;
+      margin-top:10px
+    }
+    @media (max-width: 1100px){.grid-form{grid-template-columns:1fr 1fr}}
+
+    label{display:block;font-size:10px;color:#cbd5e1;text-transform:uppercase;margin:2px 0 4px}
+    input,select{
+      width:100%;box-sizing:border-box;
+      padding:10px;border-radius:10px;border:1px solid #334155;
+      background:rgba(255,255,255,.06);color:#f9fafb;outline:none;
+    }
+
+    .row-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;justify-content:space-between}
+    .row-actions .left-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    button{
+      padding:8px 12px;border-radius:8px;border:none;cursor:pointer;
+      font-weight:800;text-transform:uppercase;font-size:11px;height:34px;min-width:120px
+    }
+    .btn-ok{background:#22c55e;color:#022c22}
+    .btn-warn{background:#f97316;color:#0f172a}
+    .btn-info{background:#0ea5e9;color:#0f172a}
+    .muted{color:#cbd5e1}
+    .msg{margin-top:8px;min-height:18px;font-weight:700}
+    .msg.ok{color:#22c55e}
+    .msg.err{color:#ef4444}
+
+    table{width:100%;border-collapse:collapse;margin-top:10px;background:#020617;font-size:11px}
+    th,td{border:1px solid #334155;padding:6px 8px;text-align:center;text-transform:uppercase;white-space:nowrap}
+    th{background:#111827;color:#f97316;position:sticky;top:0;z-index:1}
+    tr:nth-child(even){background:#0b1120}
+    tr:nth-child(odd){background:#020617}
+    .tblwrap{max-height:520px;overflow:auto;border-radius:10px;margin-top:10px}
+    .btn-mini{height:28px;min-width:88px;padding:0 10px;border-radius:8px;font-size:10px}
+    .btn-edit{background:#38bdf8;color:#0f172a}
+    .btn-del{background:#ef4444;color:#fff}
+    .left{text-align:left}
+
+    .subttl{margin:0 0 6px 0;color:#f97316;font-weight:900;text-transform:uppercase;letter-spacing:.4px}
+    .hint{color:#cbd5e1;font-size:11px}
+
+    /* ===== PRINT / PDF: imprimir o ARQUIVO TODO (tabela inteira) ===== */
+    @page { size: A4 landscape; margin: 10mm; }
+    @media print{
+      .no-print{display:none !important}
+      body{background:#fff !important;color:#000 !important}
+      .card{box-shadow:none !important;border:none !important}
+      th{background:#eee !important;color:#000 !important;position:static !important}
+      tr:nth-child(even),tr:nth-child(odd){background:#fff !important}
+      .tblwrap{max-height:none !important;overflow:visible !important}
+      *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    }
   </style>
 </head>
+
 <body>
-  <div class="wrap">
+  <div class="container">
+    <h1>TESOURA - JOGADORES</h1>
+
+    <!-- ANIVERSARIANTES DO MÊS -->
+    <div class="card" id="cardAnivers" style="display:none">
+      <div class="subttl">ANIVERSARIANTES DO MÊS</div>
+      <div class="hint">APELIDO - DIA - IDADE</div>
+
+      <div class="tblwrap" style="max-height:260px">
+        <table>
+          <thead>
+            <tr>
+              <th class="left">Apelido</th>
+              <th>Dia</th>
+              <th>Idade</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyAnivers"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FORM + LISTA -->
     <div class="card">
-      <h1>JOGADORES (V6)</h1>
-      <div class="row">
-  <input id="apelido" placeholder="Apelido (obrigatório)" />
-  <input id="nome" placeholder="Nome" />
-  <button id="btnSalvar">SALVAR</button>
-  <button id="btnCarregar">CARREGAR LISTA</button>
-</div>
+      <div class="no-print">
+        <div class="grid-form">
+          <div>
+            <label>Camisa</label>
+            <input id="camisa" placeholder="Nº" inputmode="numeric" />
+          </div>
 
-<div class="row">
-  <select id="histSel" style="padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text);">
-    <option value="">HISTÓRICO (selecione)</option>
-  </select>
-  <button id="btnHistAtualizar">ATUALIZAR HISTÓRICO</button>
-  <button id="btnHistCarregar">CARREGAR SELECIONADO</button>
-  <button id="btnPdf">BAIXAR PDF (ATUAL)</button>
-</div>
+          <div>
+            <label>Apelido (único) *</label>
+            <input id="apelido" placeholder="Apelido" />
+          </div>
 
-  <script>
-    const statusEl = document.getElementById("status");
-    const listEl = document.getElementById("list");
+          <div>
+            <label>Nome</label>
+            <input id="nome" placeholder="Nome completo" />
+          </div>
 
-    async function carregar(){
-      statusEl.textContent = "Carregando...";
-      const r = await fetch("/api/jogadores");
-      const data = await r.json();
-      statusEl.textContent = "OK: " + data.length + " jogadores";
-      listEl.textContent = JSON.stringify(data, null, 2);
+          <div>
+            <label>Data Nasc.</label>
+            <input id="data_nasc" placeholder="AAAA-MM-DD ou DD/MM/AAAA" />
+          </div>
+
+          <div>
+            <label>Celular</label>
+            <input id="celular" placeholder="DDD + número" />
+          </div>
+
+          <div>
+            <label>Pontos</label>
+            <input id="pontos" placeholder="0" inputmode="numeric" />
+          </div>
+
+          <!-- CLASSIFICAÇÃO (como no seu print) -->
+          <div>
+            <label>Posição (D/M/A)</label>
+            <select id="posicao">
+              <option value="">-</option>
+              <option value="D">D</option>
+              <option value="M">M</option>
+              <option value="A">A</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Habilidade (1–5)</label>
+            <select id="hab">
+              <option value="">-</option>
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Velocidade (1–L,2–N,3–I)</label>
+            <select id="vel">
+              <option value="">-</option>
+              <option value="1">1 - L</option>
+              <option value="2">2 - N</option>
+              <option value="3">3 - I</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Movimentação (1–P,2–N,3–I)</label>
+            <select id="mov">
+              <option value="">-</option>
+              <option value="1">1 - P</option>
+              <option value="2">2 - N</option>
+              <option value="3">3 - I</option>
+            </select>
+          </div>
+
+          <div style="display:flex;align-items:end;gap:10px">
+            <button class="btn-ok" id="btnSalvar">Salvar</button>
+            <button class="btn-warn" id="btnLimpar">Limpar</button>
+          </div>
+
+          <div style="display:flex;align-items:end;justify-content:flex-end">
+            <button class="btn-info" id="btnPdf">Baixar PDF (Arquivo)</button>
+          </div>
+        </div>
+
+        <div class="msg muted" id="msg">Carregando lista...</div>
+        <div class="muted" id="total"></div>
+      </div>
+
+      <div class="tblwrap" id="wrapTabela">
+        <table>
+          <thead>
+            <tr>
+              <th>Ordem</th>
+              <th>Camisa</th>
+              <th class="left">Apelido</th>
+              <th class="left">Nome</th>
+              <th>Data Nasc.</th>
+              <th>Idade</th>
+              <th>Celular</th>
+              <th>Posição</th>
+              <th>Hab</th>
+              <th>Vel</th>
+              <th>Mov</th>
+              <th>Pontos</th>
+              <th class="no-print">Editar</th>
+              <th class="no-print">Excluir</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  let editId = null;
+  let cache = [];
+
+  function setMsg(text, type){
+    const el = $("msg");
+    el.textContent = text || "";
+    el.className = "msg " + (type || "muted");
+  }
+
+  function toIntOrNull(v){
+    const t = String(v||"").trim();
+    if(!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function valOrNull(v){
+    const t = String(v||"").trim();
+    return t ? t : null;
+  }
+
+  function normalizeDate(s){
+    const t = String(s||"").trim();
+    if(!t) return null;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+    const m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if(m) return `${m[3]}-${m[2]}-${m[1]}`;
+    return t; // deixa como veio (se já estiver ok no backend)
+  }
+
+  function fmtDateBR(iso){
+    const t = String(iso||"").trim();
+    const m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!m) return (t || "");
+    return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+
+  function calcAge(iso){
+    const t = String(iso||"").trim();
+    const m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!m) return "";
+    const y = Number(m[1]), mm = Number(m[2])-1, dd = Number(m[3]);
+    const today = new Date();
+    let age = today.getFullYear() - y;
+    const hadBirthday = (today.getMonth() > mm) || (today.getMonth() === mm && today.getDate() >= dd);
+    if(!hadBirthday) age -= 1;
+    return (age >= 0 && age <= 120) ? String(age) : "";
+  }
+
+  function velLabel(n){
+    const v = Number(n);
+    if(v === 1) return "L";
+    if(v === 2) return "N";
+    if(v === 3) return "I";
+    return "";
+  }
+
+  function movLabel(n){
+    const v = Number(n);
+    if(v === 1) return "P";
+    if(v === 2) return "N";
+    if(v === 3) return "I";
+    return "";
+  }
+
+  async function apiJson(url, opts){
+    const r = await fetch(url, opts);
+    const ct = (r.headers.get("content-type") || "");
+    const isJson = ct.includes("application/json");
+    const data = isJson ? await r.json() : await r.text();
+    return { r, data };
+  }
+
+  function renderAniversariantes(items){
+    const card = $("cardAnivers");
+    const tb = $("tbodyAnivers");
+    tb.innerHTML = "";
+
+    const now = new Date();
+    const mes = now.getMonth(); // 0-11
+    const ano = now.getFullYear();
+
+    const anivers = items
+      .filter(it => (it.data_nasc || it.data_nascimento))
+      .map(it => {
+        const dn = String(it.data_nasc || it.data_nascimento || "").trim();
+        const m = dn.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if(!m) return null;
+        const mm = Number(m[2]) - 1;
+        const dd = Number(m[3]);
+        if(mm !== mes) return null;
+
+        // idade no dia do aniversario (no ano corrente)
+        let idade = ano - Number(m[1]);
+        return { apelido: it.apelido || "", dia: dd, idade: idade };
+      })
+      .filter(Boolean)
+      .sort((a,b)=> a.dia - b.dia || String(a.apelido).localeCompare(String(b.apelido)));
+
+    if(!anivers.length){
+      card.style.display = "none";
+      return;
     }
 
-    async function salvar(){
-      const apelido = document.getElementById("apelido").value.trim();
-      const nome = document.getElementById("nome").value.trim();
-      if(!apelido){ statusEl.textContent = "ERRO: informe o APELIDO"; return; }
+    card.style.display = "block";
 
-      statusEl.textContent = "Salvando...";
-      const r = await fetch("/api/jogadores", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ apelido, nome })
+    for(const a of anivers){
+      const tr = document.createElement("tr");
+      const td1 = document.createElement("td");
+      td1.className = "left";
+      td1.textContent = a.apelido;
+      const td2 = document.createElement("td");
+      td2.textContent = String(a.dia);
+      const td3 = document.createElement("td");
+      td3.textContent = String(a.idade);
+      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+      tb.appendChild(tr);
+    }
+  }
+
+  function render(){
+    const tb = $("tbody");
+    tb.innerHTML = "";
+
+    // ORDEM = 1..N (pela ordem alfabética do apelido)
+    const items = [...cache].sort((a,b)=> String(a.apelido||"").localeCompare(String(b.apelido||"")));
+    $("total").textContent = "TOTAL DE JOGADORES: " + items.length;
+
+    renderAniversariantes(items);
+
+    items.forEach((it, idx) => {
+      const tr = document.createElement("tr");
+
+      function td(text, cls){
+        const d = document.createElement("td");
+        if(cls) d.className = cls;
+        d.textContent = (text===null || text===undefined) ? "" : String(text);
+        return d;
+      }
+
+      const dataNasc = it.data_nasc || it.data_nascimento || "";
+      const idade = calcAge(String(dataNasc||""));
+
+      tr.appendChild(td(idx + 1));                    // ORDEM
+      tr.appendChild(td(it.camisa ?? it.numero_camisa ?? "")); // CAMISA
+      tr.appendChild(td(it.apelido, "left"));         // APELIDO
+      tr.appendChild(td(it.nome ?? it.nome_completo ?? "", "left")); // NOME
+      tr.appendChild(td(fmtDateBR(dataNasc)));        // DATA NASC
+      tr.appendChild(td(idade));                      // IDADE
+      tr.appendChild(td(it.celular ?? ""));           // CELULAR
+      tr.appendChild(td(it.posicao ?? ""));           // POSIÇÃO
+
+      const hab = it.hab ?? it.habilidade ?? "";
+      const vel = it.vel ?? it.velocidade ?? "";
+      const mov = it.mov ?? it.movimentacao ?? "";
+
+      tr.appendChild(td(hab)); // HAB
+
+      // VEL / MOV: mostrar numero + letra
+      tr.appendChild(td(vel ? `${vel} (${velLabel(vel)})` : "")); // VEL
+      tr.appendChild(td(mov ? `${mov} (${movLabel(mov)})` : "")); // MOV
+
+      tr.appendChild(td(it.pontos ?? it.pontos_totais ?? 0));     // PONTOS
+
+      // EDITAR
+      const tEdit = document.createElement("td");
+      tEdit.className = "no-print";
+      const bEdit = document.createElement("button");
+      bEdit.className = "btn-mini btn-edit";
+      bEdit.textContent = "EDITAR";
+      bEdit.onclick = ()=> preencherEdicao(it);
+      tEdit.appendChild(bEdit);
+      tr.appendChild(tEdit);
+
+      // EXCLUIR
+      const tDel = document.createElement("td");
+      tDel.className = "no-print";
+      const bDel = document.createElement("button");
+      bDel.className = "btn-mini btn-del";
+      bDel.textContent = "EXCLUIR";
+      bDel.onclick = ()=> excluir(it);
+      tDel.appendChild(bDel);
+      tr.appendChild(tDel);
+
+      tb.appendChild(tr);
+    });
+  }
+
+  async function carregar(){
+    setMsg("Carregando lista...", "muted");
+    const { r, data } = await apiJson("/api/jogadores");
+    if(!r.ok){
+      setMsg("ERRO ao carregar: " + r.status, "err");
+      return;
+    }
+    cache = Array.isArray(data) ? data : [];
+    render();
+    setMsg("OK: lista carregada", "ok");
+  }
+
+  function limpar(){
+    editId = null;
+    $("btnSalvar").textContent = "Salvar";
+    $("camisa").value = "";
+    $("nome").value = "";
+    $("apelido").value = "";
+    $("data_nasc").value = "";
+    $("celular").value = "";
+    $("posicao").value = "";
+    $("hab").value = "";
+    $("vel").value = "";
+    $("mov").value = "";
+    $("pontos").value = "0";
+    setMsg("Pronto.", "muted");
+  }
+
+  function preencherEdicao(it){
+    editId = it.id ?? null;
+
+    $("btnSalvar").textContent = "Atualizar";
+
+    $("camisa").value = (it.camisa ?? it.numero_camisa ?? "");
+    $("apelido").value = (it.apelido ?? "");
+    $("nome").value = (it.nome ?? it.nome_completo ?? "");
+    $("data_nasc").value = (it.data_nasc ?? it.data_nascimento ?? "");
+    $("celular").value = (it.celular ?? "");
+
+    $("posicao").value = (it.posicao ?? "");
+    $("hab").value = (it.hab ?? it.habilidade ?? "");
+    $("vel").value = (it.vel ?? it.velocidade ?? "");
+    $("mov").value = (it.mov ?? it.movimentacao ?? "");
+
+    $("pontos").value = (it.pontos ?? it.pontos_totais ?? 0);
+
+    setMsg("Editando: " + (it.apelido||""), "muted");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function salvar(){
+    const apelido = String($("apelido").value||"").trim();
+    if(!apelido){ setMsg("ERRO: informe o APELIDO", "err"); return; }
+
+    const payload = {
+      id: editId,
+      camisa: toIntOrNull($("camisa").value),
+      apelido,
+      nome: valOrNull($("nome").value) || "",
+      data_nasc: normalizeDate($("data_nasc").value),
+      celular: valOrNull($("celular").value),
+
+      posicao: valOrNull($("posicao").value),
+      hab: toIntOrNull($("hab").value),
+      vel: toIntOrNull($("vel").value),
+      mov: toIntOrNull($("mov").value),
+
+      pontos: toIntOrNull($("pontos").value) ?? 0
+    };
+
+    setMsg(editId ? "Atualizando..." : "Salvando...", "muted");
+
+    // tentativa 1: PUT /api/jogadores/:id
+    if(editId){
+      let { r } = await apiJson("/api/jogadores/" + encodeURIComponent(editId), {
+        method: "PUT",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(payload)
       });
-      const resp = await r.json();
-      if(!resp.ok){ statusEl.textContent = "ERRO: " + (resp.error || "falha"); return; }
-      statusEl.textContent = "Salvo. ID: " + resp.id;
+
+      // fallback: POST com id
+      if(r.status === 404 || r.status === 405){
+        ({ r } = await apiJson("/api/jogadores", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify(payload)
+        }));
+      }
+
+      if(!r.ok){ setMsg("ERRO ao atualizar ("+r.status+")", "err"); return; }
+      setMsg("OK: atualizado", "ok");
+      limpar();
       await carregar();
+      return;
     }
-async function atualizarHistorico(){
-  const r = await fetch("/api/jogadores/historico");
-  const resp = await r.json();
-  const sel = document.getElementById("histSel");
-  sel.innerHTML = `<option value="">HISTÓRICO (selecione)</option>`;
-  if(!resp.ok) { return; }
-  resp.items.forEach(it => {
-    const opt = document.createElement("option");
-    opt.value = it.ref;
-    opt.textContent = it.ref;
-    sel.appendChild(opt);
-  });
-}
 
-async function carregarDoHistorico(){
-  const ref = document.getElementById("histSel").value;
-  if(!ref){ statusEl.textContent = "Selecione um item do histórico"; return; }
-  statusEl.textContent = "Carregando histórico...";
-  const r = await fetch(`/api/jogadores/carregar?ref=${encodeURIComponent(ref)}`);
-  const resp = await r.json();
-  if(!resp.ok){ statusEl.textContent = "ERRO: " + (resp.error || "falha"); return; }
+    // novo: POST
+    const { r } = await apiJson("/api/jogadores", {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
 
-  // Apenas exibe o snapshot por enquanto
-  listEl.textContent = JSON.stringify(resp.data, null, 2);
-  statusEl.textContent = "OK: histórico carregado";
-}
+    if(!r.ok){ setMsg("ERRO ao salvar ("+r.status+")", "err"); return; }
+    setMsg("OK: salvo", "ok");
+    limpar();
+    await carregar();
+  }
 
-      </script>
+  async function excluir(it){
+    if(!confirm("Excluir jogador: " + (it.apelido||"") + " ?")) return;
+    setMsg("Excluindo...", "muted");
 
+    let id = it.id;
+    if(!id){ setMsg("ERRO: ID não encontrado", "err"); return; }
+
+    // tentativa 1: DELETE /api/jogadores/:id
+    let { r } = await apiJson("/api/jogadores/" + encodeURIComponent(id), { method:"DELETE" });
+
+    // fallback: DELETE /api/jogadores?id=...
+    if(r.status === 404 || r.status === 405){
+      ({ r } = await apiJson("/api/jogadores?id=" + encodeURIComponent(id), { method:"DELETE" }));
+    }
+
+    if(!r.ok){
+      setMsg("ERRO ao excluir ("+r.status+")", "err");
+      return;
+    }
+    setMsg("OK: excluído", "ok");
+    await carregar();
+  }
+
+  $("btnPdf").addEventListener("click", ()=> window.print());
+  $("btnLimpar").addEventListener("click", limpar);
+  $("btnSalvar").addEventListener("click", salvar);
+
+  carregar().catch(()=> setMsg("ERRO ao carregar lista", "err"));
+</script>
+</body>
+</html>
