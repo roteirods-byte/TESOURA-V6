@@ -5,320 +5,255 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TESOURA - JOGADORES</title>
 
-  <link rel="stylesheet" href="../app/css/tokens.css" />
-  <link rel="stylesheet" href="../app/css/ui.css" />
-
   <style>
-    body{margin:0;background:#0f172a;color:#f9fafb;font-family:Arial,sans-serif;font-size:12px}
-    .container{max-width:1400px;margin:0 auto;padding:14px}
+    :root{
+      --bg:#061226;
+      --card:#0b1932;
+      --line:#243552;
+      --txt:#e6eefc;
+      --muted:#9bb0d1;
+      --orange:#f28c28;
+      --green:#22c55e;
+      --blue:#22a3ff;
+      --red:#ff3b3b;
+      --shadow: 0 10px 28px rgba(0,0,0,.35);
+    }
 
-    h1{margin:6px 0 12px;color:#f97316;text-transform:uppercase;letter-spacing:.5px;font-size:18px}
-    .card{background:#020617;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,.35);border:1px solid #111827}
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: radial-gradient(1200px 700px at 50% 0%, #0b1b3a 0%, var(--bg) 55%, #040b18 100%);
+      color:var(--txt);
+    }
 
-    /* FORM COMPACTO (parecido com o modelo) */
+    .container{ max-width: 1180px; margin: 18px auto 30px; padding: 0 14px; }
+    h1{ margin:0 0 10px; font-size:22px; letter-spacing:.4px; color:var(--orange); }
+
+    .rev{
+      color:var(--green);
+      font-weight:900;
+      margin: 6px 0 12px;
+      font-size: 13px;
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    /* Barra de ajuda */
     .helpbar{
-      margin-top:6px;
-      display:flex;gap:14px;flex-wrap:wrap;
-      font-size:11px;color:#e5e7eb;font-weight:800
+      display:flex;
+      gap:14px;
+      flex-wrap:wrap;
+      padding: 10px 10px;
+      border-radius: 12px;
+      background: rgba(0,0,0,.18);
+      border: 1px solid rgba(255,255,255,.08);
+      margin-bottom: 12px;
+      color: #cfe0ff;
+      font-weight: 800;
+      font-size: 12px;
     }
-    .helpbar span{opacity:.95}
-    .grid-form{
+
+    /* ===== FORM (usando seu esquema de larguras) ===== */
+    .form-grid{
       display:grid;
-      grid-template-columns: 120px 1.6fr 200px 160px;
-      gap:8px;
-      margin-top:10px
+      grid-template-columns: 70px 220px 140px 110px; /* Camisa, Nome, Apelido, Data Nasc */
+      gap: 10px 12px;
+      align-items:end;
     }
-    @media (max-width: 1100px){.grid-form{grid-template-columns:1fr 1fr}}
 
-    label{display:block;font-size:10px;color:#cbd5e1;text-transform:uppercase;margin:0 0 4px}
-    input,select{
-      width:100%;box-sizing:border-box;
-      padding:7px 10px;border-radius:9px;border:1px solid #334155;
-      background:rgba(255,255,255,.06);color:#f9fafb;
-      outline:none;
-      height:34px;
-      font-size:12px
+    .field label{
+      display:block;
+      font-size: 11px;
+      font-weight: 900;
+      color:#cfe0ff;
+      margin: 0 0 6px;
+      letter-spacing:.2px;
     }
-    select{height:34px}
 
-    .row-actions{
-      display:flex;gap:10px;flex-wrap:wrap;
-      margin-top:10px;align-items:center;justify-content:flex-end
+    input{
+      width:100%;
+      height: 34px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(0,0,0,.18);
+      color: var(--txt);
+      outline: none;
     }
-    button{
-      padding:8px 12px;border-radius:10px;border:none;cursor:pointer;
-      font-weight:900;text-transform:uppercase;font-size:11px;height:34px;min-width:120px
+    input::placeholder{ color: rgba(230,238,252,.45); font-weight:700; }
+
+    .row2{
+      margin-top: 10px;
+      display:grid;
+      grid-template-columns: 140px 60px 60px 60px; /* Celular, Posição, Hab, Vel */
+      gap: 10px 12px;
+      align-items:end;
     }
-    .btn-ok{background:#22c55e;color:#052e16}
-    .btn-warn{background:#f97316;color:#0f172a}
-    .btn-info{background:#0ea5e9;color:#06162f}
 
-    .muted{color:#cbd5e1}
-    .msg{margin-top:8px;min-height:18px;font-weight:900;font-size:12px}
-    .msg.ok{color:#22c55e}
-    .msg.err{color:#ef4444}
+    .row3{
+      margin-top: 10px;
+      display:grid;
+      grid-template-columns: 60px 60px 1fr; /* Mov, Pontos, Botões */
+      gap: 10px 12px;
+      align-items:end;
+    }
 
-    /* ANIVERSARIANTES */
+    .btns{
+      display:flex;
+      justify-content:flex-end;
+      gap: 10px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      height: 36px;
+      min-width: 110px;
+      padding: 0 14px;
+      border-radius: 10px;
+      border: 0;
+      cursor:pointer;
+      font-weight: 900;
+      letter-spacing:.2px;
+    }
+    .btn-save{ background: var(--green); color:#05210f; }
+    .btn-clear{ background: var(--orange); color:#2a1200; }
+    .btn-pdf{ background: var(--blue); color:#001a2a; }
+
+    .status{
+      margin: 10px 2px 0;
+      font-weight: 900;
+      font-size: 12px;
+    }
+    .status.ok{ color: var(--green); }
+    .status.err{ color: var(--red); }
+
+    .total{
+      margin: 4px 2px 0;
+      font-weight: 900;
+      font-size: 12px;
+      color: #ffffff;
+    }
+
+    /* ===== ANIVERSARIANTES (larguras fixas: 100 / 60 / 60) ===== */
     .bday-card{
-      margin-top:10px;
-      border:1px solid #111827;
-      background:#0b1120;
-      border-radius:12px;
-      padding:10px
+      margin-top: 14px;
+      background: rgba(0,0,0,.18);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      padding: 10px 10px 12px;
     }
     .bday-title{
-      color:#f97316;font-weight:900;text-transform:uppercase;font-size:12px;
-      margin:0 0 8px 0;letter-spacing:.4px
+      color: var(--orange);
+      font-weight: 900;
+      margin: 0 0 10px;
+      font-size: 13px;
+      letter-spacing:.25px;
     }
-    .bday-empty{color:#e5e7eb;opacity:.85;font-weight:800}
 
-    .bday-table{width:100%;border-collapse:collapse;font-size:11px}
-    .bday-table th,.bday-table td{border:1px solid #334155;padding:6px 8px;text-align:center;text-transform:uppercase;white-space:nowrap}
-    .bday-table th{background:#111827;color:#f97316}
+    .bday-table{
+      width:100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      overflow:hidden;
+      border-radius: 12px;
+    }
+    .bday-table th, .bday-table td{
+      border: 1px solid rgba(255,255,255,.10);
+      padding: 8px 10px;
+      font-weight: 900;
+      font-size: 12px;
+    }
+    .bday-table th{
+      color: var(--orange);
+      background: rgba(0,0,0,.20);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing:.4px;
+    }
+    .bday-table th:nth-child(1), .bday-table td:nth-child(1){ width: 100px; }
+    .bday-table th:nth-child(2), .bday-table td:nth-child(2){ width: 60px; text-align:center; }
+    .bday-table th:nth-child(3), .bday-table td:nth-child(3){ width: 60px; text-align:center; }
 
-    /* TABELA */
-    table{width:100%;border-collapse:collapse;margin-top:10px;background:#020617;font-size:11px}
-    th,td{border:1px solid #334155;padding:6px 8px;text-align:center;text-transform:uppercase;white-space:nowrap}
-    th{background:#111827;color:#f97316;position:sticky;top:0;z-index:1}
-    tr:nth-child(even){background:#0b1120}
-    tr:nth-child(odd){background:#020617}
-    .tblwrap{max-height:420px;overflow:auto;border-radius:10px;margin-top:10px}
+    /* ===== TABELA PRINCIPAL (larguras do seu esquema) ===== */
+    .table-wrap{
+      margin-top: 14px;
+      border-radius: 14px;
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.14);
+      max-height: 520px;
+    }
 
-    .btn-mini{height:28px;min-width:88px;padding:0 10px;border-radius:8px;font-size:10px}
-    .btn-edit{background:#38bdf8;color:#0f172a}
-    .btn-del{background:#ef4444;color:#fff}
-    .left{text-align:left}
+    table.main{
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      min-width: 1180px;
+    }
 
-    /* PDF: imprimir TUDO (sem scroll) e em PAISAGEM */
-/* ===== REV: compactar form + alinhar como modelo ===== */
-.grid-form{
-  display:grid;
-  grid-template-columns: 110px 520px 210px 190px;
-  gap:10px;
-  margin-top:10px;
+    table.main th, table.main td{
+      border: 1px solid rgba(255,255,255,.10);
+      padding: 8px 8px;
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--txt);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
-  /* isso elimina o “vazio feio” (centraliza o form) */
-  max-width: 1120px;
-  margin-left:auto;
-  margin-right:auto;
+    table.main th{
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: rgba(0,0,0,.28);
+      color: var(--orange);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: .45px;
+    }
 
-  align-items:end;
-}
+    .center{ text-align:center; }
+    .btn-mini{
+      height: 30px;
+      min-width: 110px;
+      padding: 0 12px;
+      border-radius: 10px;
+      border: 0;
+      cursor:pointer;
+      font-weight: 900;
+      font-size: 12px;
+    }
+    .btn-edit{ background: #22a3ff; color:#001a2a; }
+    .btn-del{ background: #ff3b3b; color:#2a0000; }
 
-@media (max-width: 1200px){
-  .grid-form{ grid-template-columns: 1fr 1fr; max-width:100%; }
-}
-
-/* inputs mais compactos */
-input, select{
-  height:34px;
-  padding:6px 10px;
-}
-
-/* limita “Nome / Posição / Pontos” pra não esticar */
-#nome{ max-width:520px; }
-#posicao{ max-width:260px; }
-#pontos{ max-width:160px; }
-
-/* botões um pouco menores */
-#btnSalvar, #btnLimpar, #btnPdf{
-  height:32px;
-  min-width:120px;
-}
-
-/* ===== ANIVERSARIANTES mais compacto ===== */
-.bday-card{
-  max-width: 820px;
-  margin: 12px auto 14px; /* centraliza e reduz largura */
-}
-
-.bday-card table{
-  width:100%;
-  table-layout:fixed;
-}
-
-.bday-card th, .bday-card td{
-  padding:6px 8px;
-  font-size:11px;
-}
-
-.bday-card th:nth-child(1), .bday-card td:nth-child(1){ width:60%; text-align:left; }
-.bday-card th:nth-child(2), .bday-card td:nth-child(2){ width:20%; text-align:center; }
-.bday-card th:nth-child(3), .bday-card td:nth-child(3){ width:20%; text-align:center; }
-
-    
+    /* Print */
     @media print{
-      @page{ size: A4 landscape; margin: 10mm; }
-
-      .no-print{display:none !important}
-
-      body{background:#fff !important;color:#000 !important}
-      .container{padding:0 !important}
-      .card{box-shadow:none !important;border:none !important;background:#fff !important}
-
-      /* remove “tabela com scroll” no print */
-      .tblwrap{max-height:none !important; overflow:visible !important; border-radius:0 !important}
-
-      th{background:#eee !important;color:#000 !important; position:static !important}
-      tr:nth-child(even),tr:nth-child(odd){background:#fff !important}
-
-      /* caber melhor */
-      table, .bday-table{font-size:9.5px !important}
-      th,td{padding:4px 6px !important}
-
-      *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .no-print{ display:none !important; }
+      body{ background:#fff !important; color:#000 !important; }
+      .container{ max-width:none; margin:0; padding:0; }
+      .card{ box-shadow:none; border:1px solid #ddd; }
+      table.main, .table-wrap{ max-height:none !important; overflow: visible !important; }
+      *{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
     }
-/* ===== PADRAO TAMANHOS (ESQUEMA JORGE) ===== */
-:root{
-  --w-camisa:70px;
-  --w-apelido:140px;
-  --w-nome:220px;
-  --w-nasc:110px;
-  --w-celular:140px;
-  --w-posicao:60px;
-  --w-hab:60px;
-  --w-vel:60px;
-  --w-mov:60px;
-  --w-pontos:60px;
-  --w-btn:110px;
-}
-
-/* inputs menores/compactos */
-input, select{
-  height:34px;
-  padding:6px 10px;
-  border-radius:10px;
-}
-
-/* FORM em grid compacto */
-.formgrid{
-  display:grid;
-  grid-template-columns:
-    var(--w-camisa) var(--w-nome) var(--w-apelido) var(--w-nasc)
-    var(--w-celular) var(--w-posicao) var(--w-hab) var(--w-vel)
-    var(--w-mov) var(--w-pontos) var(--w-btn) var(--w-btn) var(--w-btn);
-  gap:10px 12px;
-  align-items:end;
-}
-
-/* caixas ocupam 100% do “bloco” */
-.formgrid > .f > input,
-.formgrid > .f > select{ width:100%; }
-
-/* aniversário compacto */
-#bdayBox table{ width:auto; table-layout:fixed; }
-#bdayBox th:nth-child(1), #bdayBox td:nth-child(1){ width:100px; }
-#bdayBox th:nth-child(2), #bdayBox td:nth-child(2){ width:60px; }
-#bdayBox th:nth-child(3), #bdayBox td:nth-child(3){ width:60px; }
-
-/* responsivo simples */
-@media (max-width: 1200px){
-  .formgrid{ grid-template-columns: 1fr 1fr; }
-}
-/* ===== AJUSTE TAMANHOS (ESQUEMA JORGE) ===== */
-:root{
-  --c-ordem:60px;
-  --c-camisa:70px;
-  --c-apelido:140px;
-  --c-nome:220px;
-  --c-nasc:110px;
-  --c-idade:70px;
-  --c-celular:140px;
-  --c-posicao:60px;
-  --c-hab:60px;
-  --c-vel:60px;
-  --c-mov:60px;
-  --c-pontos:60px;
-  --c-btn:110px;
-}
-
-/* inputs menores */
-input, select{
-  height:32px;
-  padding:6px 10px;
-}
-
-/* força os campos principais a NÃO ficarem gigantes */
-#camisa{max-width:var(--c-camisa)}
-#apelido{max-width:var(--c-apelido)}
-#nome{max-width:var(--c-nome)}
-#data_nasc{max-width:var(--c-nasc)}
-#celular{max-width:var(--c-celular)}
-#posicao{max-width:var(--c-posicao)}
-#habilidade{max-width:var(--c-hab)}
-#velocidade{max-width:var(--c-vel)}
-#movimentacao{max-width:var(--c-mov)}
-#pontos{max-width:var(--c-pontos)}
-
-/* aniversariantes compacto (3 colunas) */
-#bdayBox table{width:auto;table-layout:fixed}
-#bdayBox th:nth-child(1), #bdayBox td:nth-child(1){width:100px}
-#bdayBox th:nth-child(2), #bdayBox td:nth-child(2){width:60px}
-#bdayBox th:nth-child(3), #bdayBox td:nth-child(3){width:60px}
-
-/* tabela principal com larguras fixas (14 colunas) */
-.tblwrap table{table-layout:fixed}
-.tblwrap th:nth-child(1), .tblwrap td:nth-child(1){width:var(--c-ordem)}
-.tblwrap th:nth-child(2), .tblwrap td:nth-child(2){width:var(--c-camisa)}
-.tblwrap th:nth-child(3), .tblwrap td:nth-child(3){width:var(--c-apelido)}
-.tblwrap th:nth-child(4), .tblwrap td:nth-child(4){width:var(--c-nome)}
-.tblwrap th:nth-child(5), .tblwrap td:nth-child(5){width:var(--c-nasc)}
-.tblwrap th:nth-child(6), .tblwrap td:nth-child(6){width:var(--c-idade)}
-.tblwrap th:nth-child(7), .tblwrap td:nth-child(7){width:var(--c-celular)}
-.tblwrap th:nth-child(8), .tblwrap td:nth-child(8){width:var(--c-posicao)}
-.tblwrap th:nth-child(9), .tblwrap td:nth-child(9){width:var(--c-hab)}
-.tblwrap th:nth-child(10), .tblwrap td:nth-child(10){width:var(--c-vel)}
-.tblwrap th:nth-child(11), .tblwrap td:nth-child(11){width:var(--c-mov)}
-.tblwrap th:nth-child(12), .tblwrap td:nth-child(12){width:var(--c-pontos)}
-.tblwrap th:nth-child(13), .tblwrap td:nth-child(13){width:var(--c-btn)}
-.tblwrap th:nth-childth:nth-child(14), .tblwrap td:nth-child(14){width:var(--c-btn)}
-
-<style>
-  /* === AJUSTE TAMANHO CAMPOS (REV) === */
-  #nome{ max-width:520px; }
-  #posicao{ max-width:240px; }
-  #pontos{ max-width:180px; }
-
-  /* opcional: deixa os inputs “mais compactos” */
-  input, select { height:36px; padding:8px 10px; }
-
-/* =========================
-   ANIVERSARIANTES (compacto)
-   ========================= */
-.bday-card{
-  max-width: 920px;
-  margin: 12px auto 16px;
-}
-
-.bday-card table{
-  width: 100%;
-  table-layout: fixed;
-}
-
-.bday-card th,
-.bday-card td{
-  padding: 6px 8px;
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bday-card th:nth-child(1), .bday-card td:nth-child(1){ width: 62%; text-align:left; }
-.bday-card th:nth-child(2), .bday-card td:nth-child(2){ width: 19%; }
-.bday-card th:nth-child(3), .bday-card td:nth-child(3){ width: 19%; }
-
-    
-</style>
-     
+  </style>
 </head>
 
 <body>
   <div class="container">
     <h1>TESOURA - JOGADORES</h1>
-<div style="color:#22c55e;font-weight:900;margin:6px 0">REV JOGADORES: 16/01 11:25</div>
+
+    <div class="rev">REV JOGADORES: 16/01 11:25</div>
+
     <div class="card">
-      <!-- FORM -->
       <div class="no-print">
         <div class="helpbar">
           <span>POSIÇÃO (Z/L/M/A): ZAGUEIRO / LATERAL / MEIO / ATAQUE</span>
@@ -327,390 +262,452 @@ input, select{
           <span>MOVIMENTAÇÃO (1–P, 2–N, 3–I)</span>
         </div>
 
-        <div class="grid-form">
-          <div>
-            <label>Camisa</label>
-            <input id="camisa" placeholder="Nº" inputmode="numeric" />
+        <!-- FORM -->
+        <div class="form-grid">
+          <div class="field">
+            <label>CAMISA</label>
+            <input id="camisa" placeholder="N°" inputmode="numeric" />
           </div>
-          <div>
-            <label>Nome</label>
+
+          <div class="field">
+            <label>NOME</label>
             <input id="nome" placeholder="Nome completo" />
           </div>
-          <div>
-            <label>Apelido (único) *</label>
+
+          <div class="field">
+            <label>APELIDO (ÚNICO)*</label>
             <input id="apelido" placeholder="Apelido" />
           </div>
-          <div>
-            <label>Nascimento</label>
-            <input id="data_nasc" placeholder="AAAA-MM-DD" />
-          </div>
 
-          <div>
-            <label>Celular</label>
-            <input id="celular" placeholder="DDD + número" />
-          </div>
-
-          <div>
-            <label>Posição (Z/L/M/A)</label>
-            <input id="posicao" placeholder="Z/L/M/A" maxlength="1" />
-          </div>
-
-          <div>
-            <label>Habilidade (1–5)</label>
-            <input id="habilidade" placeholder="1-5" inputmode="numeric" />
-          </div>
-          <div>
-            <label>Velocidade (1–3)</label>
-            <input id="velocidade" placeholder="1-3" inputmode="numeric" />
-          </div>
-
-          <div>
-            <label>Movimentação (1–3)</label>
-            <input id="movimentacao" placeholder="1-3" inputmode="numeric" />
-          </div>
-          <div>
-            <label>Pontos</label>
-            <input id="pontos" placeholder="0" inputmode="numeric" />
-          </div>
-
-          <div style="display:flex;align-items:end;gap:10px">
-            <button class="btn-ok" id="btnSalvar">Salvar</button>
-            <button class="btn-warn" id="btnLimpar">Limpar</button>
-          </div>
-          <div style="display:flex;align-items:end;justify-content:flex-end">
-            <button class="btn-info" id="btnPdf">Baixar PDF</button>
+          <div class="field">
+            <label>NASCIMENTO</label>
+            <input id="nascimento" placeholder="AAAA-MM-DD" />
           </div>
         </div>
 
-        <div class="msg muted" id="msg">Carregando lista...</div>
-        <div class="muted" id="total"></div>
+        <div class="row2">
+          <div class="field">
+            <label>CELULAR</label>
+            <input id="celular" placeholder="DDD + número" />
+          </div>
+
+          <div class="field">
+            <label>POSIÇÃO (Z/L/M/A)</label>
+            <!-- PEDIDO: SEM DROPDOWN, DIGITÁVEL -->
+            <input id="posicao" placeholder="Z/L/M/A" maxlength="1" />
+          </div>
+
+          <div class="field">
+            <label>HABILIDADE (1–5)</label>
+            <input id="hab" placeholder="1-5" inputmode="numeric" />
+          </div>
+
+          <div class="field">
+            <label>VELOCIDADE (1–3)</label>
+            <input id="vel" placeholder="1-3" inputmode="numeric" />
+          </div>
+        </div>
+
+        <div class="row3">
+          <div class="field">
+            <label>MOVIMENTAÇÃO (1–3)</label>
+            <input id="mov" placeholder="1-3" inputmode="numeric" />
+          </div>
+
+          <div class="field">
+            <label>PONTOS</label>
+            <input id="pontos" placeholder="0" inputmode="numeric" />
+          </div>
+
+          <div class="btns">
+            <button class="btn btn-save" id="btnSalvar">SALVAR</button>
+            <button class="btn btn-clear" id="btnLimpar">LIMPAR</button>
+            <button class="btn btn-pdf" id="btnPdf">BAIXAR PDF</button>
+          </div>
+        </div>
+
+        <div id="status" class="status ok">OK: lista carregada</div>
+        <div class="total" id="total">TOTAL DE JOGADORES: 0</div>
       </div>
 
       <!-- ANIVERSARIANTES -->
       <div class="bday-card" id="bdayBox">
         <div class="bday-title" id="bdayTitle">ANIVERSARIANTES DO MÊS</div>
-        <div id="bdayContent" class="bday-empty">Carregando...</div>
+        <div id="bdayContent">Carregando...</div>
       </div>
 
       <!-- TABELA -->
-      <div class="tblwrap" id="wrapTabela">
-        <table>
+      <div class="table-wrap">
+        <table class="main" id="tbl">
+          <colgroup>
+            <col style="width:60px" />
+            <col style="width:70px" />
+            <col style="width:140px" />
+            <col style="width:220px" />
+            <col style="width:110px" />
+            <col style="width:70px" />
+            <col style="width:140px" />
+            <col style="width:60px" />
+            <col style="width:60px" />
+            <col style="width:60px" />
+            <col style="width:60px" />
+            <col style="width:60px" />
+            <col style="width:110px" />
+            <col style="width:110px" />
+          </colgroup>
           <thead>
             <tr>
-              <th>Ordem</th>
-              <th>Camisa</th>
-              <th class="left">Apelido</th>
-              <th class="left">Nome</th>
-              <th>Data Nasc.</th>
-              <th>Idade</th>
-              <th>Celular</th>
-              <th>Posição</th>
-              <th>Hab</th>
-              <th>Vel</th>
-              <th>Mov</th>
-              <th>Pontos</th>
-              <th class="no-print">Editar</th>
-              <th class="no-print">Excluir</th>
+              <th class="center">ORDEM</th>
+              <th class="center">CAMISA</th>
+              <th>APELIDO</th>
+              <th>NOME</th>
+              <th class="center">DATA NASC.</th>
+              <th class="center">IDADE</th>
+              <th>CELULAR</th>
+              <th class="center">POSIÇÃO</th>
+              <th class="center">HAB</th>
+              <th class="center">VEL</th>
+              <th class="center">MOV</th>
+              <th class="center">PONTOS</th>
+              <th class="center">EDITAR</th>
+              <th class="center">EXCLUIR</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
         </table>
       </div>
-
     </div>
   </div>
 
-<script>
-  const $ = (id) => document.getElementById(id);
+  <script>
+    // ===== API (tenta manter compatível) =====
+    const API_BASES = [
+      "/api/jogadores",
+      "/api/jogadores/",
+    ];
 
-  let editId = null;
-  let cache = [];
-
-  function setMsg(text, type){
-    const el = $("msg");
-    if(!el) return;
-    el.textContent = text || "";
-    el.className = "msg " + (type || "muted");
-  }
-
-  function toIntOrNull(v){
-    const t = String(v||"").trim();
-    if(!t) return null;
-    const n = Number(t);
-    return Number.isFinite(n) ? n : null;
-  }
-
-  function valOrNull(v){
-    const t = String(v||"").trim();
-    return t ? t : null;
-  }
-
-  function pad2(n){ return String(n).padStart(2,"0"); }
-
-  function parseDateYYYYMMDD(s){
-    const t = String(s||"").trim();
-    if(!t) return null;
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
-    if(!m) return null;
-    const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
-    if(!y || mo<1 || mo>12 || d<1 || d>31) return null;
-    const dt = new Date(y, mo-1, d);
-    if(dt.getFullYear()!==y || (dt.getMonth()+1)!==mo || dt.getDate()!==d) return null;
-    return dt;
-  }
-
-  function calcIdade(dateStr){
-    const dt = parseDateYYYYMMDD(dateStr);
-    if(!dt) return "";
-    const now = new Date();
-    let age = now.getFullYear() - dt.getFullYear();
-    const m = now.getMonth() - dt.getMonth();
-    if(m < 0 || (m === 0 && now.getDate() < dt.getDate())) age--;
-    return age >= 0 ? age : "";
-  }
-
-  async function apiJson(url, opts){
-  const o = Object.assign({ cache:"no-store" }, (opts||{}));
-  const r = await fetch(url, o);
-  const ct = (r.headers.get("content-type") || "");
-  const isJson = ct.includes("application/json");
-  const data = isJson ? await r.json() : await r.text();
-  return { r, data };
-}
-
-
-  function renderBday(){
-    const box = $("bdayContent");
-    const title = $("bdayTitle");
-    const now = new Date();
-    const mes = now.getMonth(); // 0-11
-    const ano = now.getFullYear();
-
-    const meses = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
-    if(title) title.textContent = "ANIVERSARIANTES DO MÊS - " + meses[mes] + " / " + ano;
-
-    const items = (cache||[])
-      .map(p => {
-        const dt = parseDateYYYYMMDD(p.data_nasc);
-        if(!dt) return null;
-        if(dt.getMonth() !== mes) return null;
-        const dia = dt.getDate();
-        const idade = calcIdade(p.data_nasc);
-        return { apelido: (p.apelido||""), dia, idade };
-      })
-      .filter(Boolean)
-      .sort((a,b)=> a.dia - b.dia || String(a.apelido).localeCompare(String(b.apelido)));
-
-    if(!box) return;
-
-    if(items.length === 0){
-      box.innerHTML = `<div class="bday-empty">Nenhum aniversariante neste mês.</div>`;
-      return;
+    function setStatusOk(msg){
+      const el = document.getElementById("status");
+      el.className = "status ok";
+      el.textContent = msg;
+    }
+    function setStatusErr(msg){
+      const el = document.getElementById("status");
+      el.className = "status err";
+      el.textContent = msg;
     }
 
-    let html = `<table class="bday-table">
-      <thead><tr><th class="left">Apelido</th><th>Dia</th><th>Idade</th></tr></thead><tbody>`;
-    for(const it of items){
-      html += `<tr>
-        <td class="left">${String(it.apelido||"").toUpperCase()}</td>
-        <td>${pad2(it.dia)}</td>
-        <td>${it.idade}</td>
-      </tr>`;
+    function onlyDigits(s){ return (s||"").replace(/\D+/g,""); }
+
+    function calcIdade(yyyy_mm_dd){
+      if(!yyyy_mm_dd || yyyy_mm_dd.length < 10) return "";
+      const [y,m,d] = yyyy_mm_dd.split("-").map(Number);
+      if(!y||!m||!d) return "";
+      const birth = new Date(y, m-1, d);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const mm = today.getMonth() - birth.getMonth();
+      if (mm < 0 || (mm === 0 && today.getDate() < birth.getDate())) age--;
+      return String(age);
     }
-    html += `</tbody></table>`;
-    box.innerHTML = html;
-  }
 
-  function render(){
-    const tb = $("tbody");
-    tb.innerHTML = "";
-
-    // ordem alfabética por apelido
-    const items = [...cache].sort((a,b)=> String(a.apelido||"").localeCompare(String(b.apelido||"")));
-    $("total").textContent = "TOTAL DE JOGADORES: " + items.length;
-
-    // ORDEM = 1..n (baseado na lista ordenada)
-    let ordem = 0;
-
-    for(const it of items){
-      ordem++;
-
-      const tr = document.createElement("tr");
-
-      function td(text, cls){
-        const d = document.createElement("td");
-        if(cls) d.className = cls;
-        d.textContent = (text===null || text===undefined) ? "" : String(text);
-        return d;
+    async function apiFetch(path, opts={}){
+      let lastErr = null;
+      for(const base of API_BASES){
+        try{
+          const url = base.endsWith("/") ? (base + path.replace(/^\//,"")) : (base + path);
+          const res = await fetch(url, opts);
+          if(res.status === 404){
+            lastErr = new Error("404 em " + url);
+            continue;
+          }
+          return res;
+        }catch(e){
+          lastErr = e;
+        }
       }
-
-      tr.appendChild(td(ordem));
-      tr.appendChild(td(it.camisa ?? ""));
-      tr.appendChild(td(it.apelido ?? "", "left"));
-      tr.appendChild(td(it.nome ?? "", "left"));
-      tr.appendChild(td(it.data_nasc ?? ""));
-      tr.appendChild(td(calcIdade(it.data_nasc)));
-      tr.appendChild(td(it.celular ?? ""));
-      tr.appendChild(td(it.posicao ?? ""));
-      tr.appendChild(td(it.habilidade ?? ""));
-      tr.appendChild(td(it.velocidade ?? ""));
-      tr.appendChild(td(it.movimentacao ?? ""));
-      tr.appendChild(td(it.pontos ?? 0));
-
-      // EDITAR
-      const tEdit = document.createElement("td");
-      tEdit.className = "no-print";
-      const bEdit = document.createElement("button");
-      bEdit.className = "btn-mini btn-edit";
-      bEdit.textContent = "EDITAR";
-      bEdit.onclick = ()=> preencherEdicao(it);
-      tEdit.appendChild(bEdit);
-      tr.appendChild(tEdit);
-
-      // EXCLUIR
-      const tDel = document.createElement("td");
-      tDel.className = "no-print";
-      const bDel = document.createElement("button");
-      bDel.className = "btn-mini btn-del";
-      bDel.textContent = "EXCLUIR";
-      bDel.onclick = ()=> excluir(it);
-      tDel.appendChild(bDel);
-      tr.appendChild(tDel);
-
-      tb.appendChild(tr);
+      throw lastErr || new Error("Falha na API");
     }
 
-    renderBday();
-  }
-
-  async function carregar(){
-    setMsg("Carregando lista...", "muted");
-    const { r, data } = await apiJson("/api/jogadores?cb=" + Date.now());
-    if(!r.ok){
-      setMsg("ERRO ao carregar: " + r.status, "err");
-      return;
+    async function loadList(){
+      const res = await apiFetch("", { cache:"no-store" });
+      if(!res.ok){
+        const txt = await res.text().catch(()=> "");
+        throw new Error("Erro ao carregar lista: " + res.status + " " + txt);
+      }
+      const data = await res.json();
+      // aceita formatos comuns:
+      // 1) {lista:[...]}
+      // 2) [...]
+      const lista = Array.isArray(data) ? data : (data.lista || data.jogadores || []);
+      renderList(lista);
+      renderBdays(lista);
+      document.getElementById("total").textContent = "TOTAL DE JOGADORES: " + lista.length;
+      setStatusOk("OK: lista carregada");
+      return lista;
     }
-    cache = Array.isArray(data) ? data : [];
-    render();
-    setMsg("OK: lista carregada", "ok");
-  }
 
-  function limpar(){
-    editId = null;
-    $("btnSalvar").textContent = "Salvar";
-    $("camisa").value = "";
-    $("nome").value = "";
-    $("apelido").value = "";
-    $("celular").value = "";
-    $("posicao").value = "";
-    $("habilidade").value = "";
-    $("velocidade").value = "";
-    $("movimentacao").value = "";
-    $("data_nasc").value = "";
-    $("pontos").value = "0";
-  }
+    function normPos(v){
+      v = (v||"").trim().toUpperCase();
+      if(!v) return "";
+      const one = v[0];
+      return one;
+    }
 
-  function preencherEdicao(it){
-    editId = it.id;
-    $("btnSalvar").textContent = "Atualizar";
-    $("camisa").value = (it.camisa ?? "");
-    $("nome").value = (it.nome ?? "");
-    $("apelido").value = (it.apelido ?? "");
-    $("celular").value = (it.celular ?? "");
-    $("posicao").value = (it.posicao ?? "");
-    $("habilidade").value = (it.habilidade ?? "");
-    $("velocidade").value = (it.velocidade ?? "");
-    $("movimentacao").value = (it.movimentacao ?? "");
-    $("data_nasc").value = (it.data_nasc ?? "");
-    $("pontos").value = (it.pontos ?? 0);
-    setMsg("Editando jogador: " + (it.apelido||""), "muted");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+    function getForm(){
+      const camisa = onlyDigits(document.getElementById("camisa").value.trim());
+      const nome = document.getElementById("nome").value.trim();
+      const apelido = document.getElementById("apelido").value.trim();
+      const nascimento = document.getElementById("nascimento").value.trim();
+      const celular = document.getElementById("celular").value.trim();
+      const posicao = normPos(document.getElementById("posicao").value);
+      const hab = onlyDigits(document.getElementById("hab").value.trim());
+      const vel = onlyDigits(document.getElementById("vel").value.trim());
+      const mov = onlyDigits(document.getElementById("mov").value.trim());
+      const pontos = onlyDigits(document.getElementById("pontos").value.trim()) || "0";
 
-  async function salvar(){
-    const apelido = String($("apelido").value||"").trim();
-    if(!apelido){ setMsg("ERRO: informe o APELIDO", "err"); return; }
-// bloqueio de apelido duplicado (case-insensitive)
-const ap = apelido.toLowerCase();
-const dup = cache.some(x => String(x.apelido||"").toLowerCase() === ap && String(x.id) !== String(editId||""));
-if(dup){
-  setMsg("ERRO: APELIDO duplicado", "err");
-  return;
-}
+      return { camisa, nome, apelido, nascimento, celular, posicao, hab, vel, mov, pontos };
+    }
 
-    const payload = {
-      id: editId,
-      camisa: toIntOrNull($("camisa").value),
-      nome: valOrNull($("nome").value) || "",
-      apelido,
-      celular: valOrNull($("celular").value),
-      posicao: valOrNull($("posicao").value),
-      habilidade: toIntOrNull($("habilidade").value),
-      velocidade: toIntOrNull($("velocidade").value),
-      movimentacao: toIntOrNull($("movimentacao").value),
-      data_nasc: valOrNull($("data_nasc").value),
-      pontos: toIntOrNull($("pontos").value) ?? 0
-    };
+    function clearForm(){
+      ["camisa","nome","apelido","nascimento","celular","posicao","hab","vel","mov","pontos"].forEach(id=>{
+        document.getElementById(id).value = "";
+      });
+      document.getElementById("pontos").value = "0";
+    }
 
-    setMsg(editId ? "Atualizando..." : "Salvando...", "muted");
-
-    if(editId){
-      let { r } = await apiJson("/api/jogadores/" + encodeURIComponent(editId), {
-        method: "PUT",
-        headers: { "Content-Type":"application/json" },
-        body: JSON.stringify(payload)
+    // ===== RENDER =====
+    function renderList(lista){
+      // ordena por apelido (como no modelo)
+      const rows = [...lista].sort((a,b)=>{
+        const aa = (a.apelido||"").toUpperCase();
+        const bb = (b.apelido||"").toUpperCase();
+        return aa.localeCompare(bb);
       });
 
-      if(r.status === 404 || r.status === 405){
-        ({ r } = await apiJson("/api/jogadores", {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify(payload)
-        }));
+      const tbody = document.getElementById("tbody");
+      tbody.innerHTML = "";
+
+      rows.forEach((p, idx)=>{
+        const tr = document.createElement("tr");
+
+        const id = p.id ?? p.ID ?? p._id ?? null;
+        const camisa = p.camisa ?? "";
+        const apelido = p.apelido ?? "";
+        const nome = p.nome ?? "";
+        const nascimento = (p.nascimento ?? p.nasc ?? p.data_nasc ?? "").toString();
+        const idade = calcIdade(nascimento);
+        const celular = p.celular ?? "";
+        const posicao = (p.posicao ?? p.pos ?? "").toString();
+        const hab = (p.hab ?? "").toString();
+        const vel = (p.vel ?? "").toString();
+        const mov = (p.mov ?? "").toString();
+        const pontos = (p.pontos ?? "0").toString();
+
+        tr.innerHTML = `
+          <td class="center">${idx+1}</td>
+          <td class="center">${camisa}</td>
+          <td>${apelido}</td>
+          <td>${nome}</td>
+          <td class="center">${nascimento}</td>
+          <td class="center">${idade}</td>
+          <td>${celular}</td>
+          <td class="center">${posicao}</td>
+          <td class="center">${hab}</td>
+          <td class="center">${vel}</td>
+          <td class="center">${mov}</td>
+          <td class="center">${pontos}</td>
+          <td class="center"><button class="btn-mini btn-edit" data-edit="${encodeURIComponent(apelido)}">EDITAR</button></td>
+          <td class="center"><button class="btn-mini btn-del" data-del="${encodeURIComponent(apelido)}">EXCLUIR</button></td>
+        `;
+        tbody.appendChild(tr);
+
+        // guarda ID se existir
+        tr.dataset.id = (id !== null && id !== undefined) ? String(id) : "";
+        tr.dataset.apelido = apelido;
+      });
+
+      // ações
+      tbody.querySelectorAll("[data-edit]").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          const ap = decodeURIComponent(btn.getAttribute("data-edit"));
+          const row = [...tbody.querySelectorAll("tr")].find(r => (r.dataset.apelido||"") === ap);
+          if(!row) return;
+          // preenche form pelo texto da linha (simples e estável)
+          const tds = row.querySelectorAll("td");
+          document.getElementById("camisa").value = tds[1].textContent.trim();
+          document.getElementById("apelido").value = tds[2].textContent.trim();
+          document.getElementById("nome").value = tds[3].textContent.trim();
+          document.getElementById("nascimento").value = tds[4].textContent.trim();
+          document.getElementById("celular").value = tds[6].textContent.trim();
+          document.getElementById("posicao").value = (tds[7].textContent.trim() || "").toUpperCase();
+          document.getElementById("hab").value = tds[8].textContent.trim();
+          document.getElementById("vel").value = tds[9].textContent.trim();
+          document.getElementById("mov").value = tds[10].textContent.trim();
+          document.getElementById("pontos").value = tds[11].textContent.trim() || "0";
+          setStatusOk("Editando: " + ap);
+          // marca edição pelo apelido (mais compatível)
+          document.getElementById("btnSalvar").dataset.edit = ap;
+        });
+      });
+
+      tbody.querySelectorAll("[data-del]").forEach(btn=>{
+        btn.addEventListener("click", async ()=>{
+          const ap = decodeURIComponent(btn.getAttribute("data-del"));
+          if(!confirm("Excluir jogador: " + ap + " ?")) return;
+          try{
+            setStatusOk("Excluindo...");
+            // tenta por apelido
+            const res = await apiFetch("/" + encodeURIComponent(ap), { method:"DELETE" });
+            if(!res.ok){
+              const txt = await res.text().catch(()=> "");
+              throw new Error("Falha ao excluir: " + res.status + " " + txt);
+            }
+            await loadList();
+            setStatusOk("Excluído: " + ap);
+          }catch(e){
+            setStatusErr(String(e.message||e));
+          }
+        });
+      });
+    }
+
+    function renderBdays(lista){
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const year = now.getFullYear();
+
+      const itens = (lista||[])
+        .map(p=>{
+          const apelido = (p.apelido||"").toString();
+          const nascimento = (p.nascimento ?? p.nasc ?? p.data_nasc ?? "").toString();
+          if(!nascimento || nascimento.length < 10) return null;
+          const [y,m,d] = nascimento.split("-").map(Number);
+          if(!m || !d) return null;
+          if(m !== month) return null;
+          const idade = calcIdade(nascimento);
+          return { apelido, dia: String(d).padStart(2,"0"), idade };
+        })
+        .filter(Boolean)
+        .sort((a,b)=> Number(a.dia)-Number(b.dia));
+
+      const title = document.getElementById("bdayTitle");
+      const months = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
+      title.textContent = `ANIVERSARIANTES DO MÊS - ${months[month-1]} / ${year}`;
+
+      const box = document.getElementById("bdayContent");
+      if(!itens.length){
+        box.innerHTML = `<div style="color:#9bb0d1;font-weight:900">Nenhum aniversariante neste mês.</div>`;
+        return;
       }
 
-      if(!r.ok){ setMsg("ERRO ao atualizar ("+r.status+")", "err"); return; }
-      setMsg("OK: atualizado", "ok");
-      limpar();
-      await carregar();
-      return;
+      let html = `
+        <table class="bday-table">
+          <thead>
+            <tr><th>APELIDO</th><th>DIA</th><th>IDADE</th></tr>
+          </thead>
+          <tbody>
+      `;
+      itens.forEach(x=>{
+        html += `<tr><td>${x.apelido}</td><td>${x.dia}</td><td>${x.idade}</td></tr>`;
+      });
+      html += `</tbody></table>`;
+      box.innerHTML = html;
     }
 
-    const { r } = await apiJson("/api/jogadores", {
-      method: "POST",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify(payload)
+    // ===== SALVAR (cria/edita e sempre recarrega TOTAL) =====
+    async function salvar(){
+      try{
+        const f = getForm();
+
+        if(!f.apelido){
+          setStatusErr("ERRO: informe o APELIDO");
+          return;
+        }
+
+        // valida posição (sem goleiro)
+        if(f.posicao && !["Z","L","M","A"].includes(f.posicao)){
+          setStatusErr("ERRO: POSIÇÃO inválida (use Z/L/M/A)");
+          return;
+        }
+
+        setStatusOk("Salvando...");
+
+        const editApelido = (document.getElementById("btnSalvar").dataset.edit || "").trim();
+
+        const payload = {
+          camisa: f.camisa,
+          apelido: f.apelido,
+          nome: f.nome,
+          nascimento: f.nascimento,
+          celular: f.celular,
+          posicao: f.posicao,
+          hab: f.hab,
+          vel: f.vel,
+          mov: f.mov,
+          pontos: f.pontos
+        };
+
+        let res;
+        if(editApelido){
+          // update
+          res = await apiFetch("/" + encodeURIComponent(editApelido), {
+            method:"PUT",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify(payload)
+          });
+        }else{
+          // create
+          res = await apiFetch("", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify(payload)
+          });
+        }
+
+        if(!res.ok){
+          const txt = await res.text().catch(()=> "");
+          // Mostra erro real (ex: apelido duplicado)
+          throw new Error("Falha ao salvar: " + res.status + " " + txt);
+        }
+
+        // sempre recarrega lista pra atualizar TOTAL
+        await loadList();
+
+        // limpa modo edição
+        document.getElementById("btnSalvar").dataset.edit = "";
+        clearForm();
+        document.getElementById("pontos").value = "0";
+
+        setStatusOk("OK: salvo e lista atualizada");
+      }catch(e){
+        setStatusErr(String(e.message||e));
+      }
+    }
+
+    // ===== INIT =====
+    document.getElementById("btnSalvar").addEventListener("click", salvar);
+    document.getElementById("btnLimpar").addEventListener("click", ()=>{
+      document.getElementById("btnSalvar").dataset.edit = "";
+      clearForm();
+      document.getElementById("pontos").value = "0";
+      setStatusOk("OK: limpo");
+    });
+    document.getElementById("btnPdf").addEventListener("click", ()=> window.print());
+
+    // força POSIÇÃO 1 letra maiúscula
+    document.getElementById("posicao").addEventListener("input", (e)=>{
+      e.target.value = (e.target.value || "").toUpperCase().slice(0,1);
     });
 
-    if(!r.ok){ setMsg("ERRO ao salvar ("+r.status+")", "err"); return; }
-    setMsg("OK: salvo", "ok");
-    limpar();
-    await carregar();
-  }
-
-  async function excluir(it){
-    if(!confirm("Excluir jogador: " + (it.apelido||"") + " ?")) return;
-    setMsg("Excluindo...", "muted");
-
-    let { r } = await apiJson("/api/jogadores/" + encodeURIComponent(it.id), { method:"DELETE" });
-
-    if(r.status === 404 || r.status === 405){
-      ({ r } = await apiJson("/api/jogadores?id=" + encodeURIComponent(it.id), { method:"DELETE" }));
-    }
-
-    if(!r.ok){
-      setMsg("ERRO ao excluir: " + r.status, "err");
-      return;
-    }
-    setMsg("OK: excluído", "ok");
-    await carregar();
-  }
-
-  $("btnPdf").addEventListener("click", ()=> window.print());
-  $("btnLimpar").addEventListener("click", limpar);
-  $("btnSalvar").addEventListener("click", salvar);
-
-  carregar().catch(()=> setMsg("ERRO ao carregar lista", "err"));
-</script>
+    // carrega
+    (async ()=>{
+      try{
+        await loadList();
+      }catch(e){
+        setStatusErr(String(e.message||e));
+      }
+    })();
+  </script>
 </body>
 </html>
