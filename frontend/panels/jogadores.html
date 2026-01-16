@@ -93,6 +93,63 @@
     .left{text-align:left}
 
     /* PDF: imprimir TUDO (sem scroll) e em PAISAGEM */
+/* ===== REV: compactar form + alinhar como modelo ===== */
+.grid-form{
+  display:grid;
+  grid-template-columns: 110px 520px 210px 190px;
+  gap:10px;
+  margin-top:10px;
+
+  /* isso elimina o “vazio feio” (centraliza o form) */
+  max-width: 1120px;
+  margin-left:auto;
+  margin-right:auto;
+
+  align-items:end;
+}
+
+@media (max-width: 1200px){
+  .grid-form{ grid-template-columns: 1fr 1fr; max-width:100%; }
+}
+
+/* inputs mais compactos */
+input, select{
+  height:34px;
+  padding:6px 10px;
+}
+
+/* limita “Nome / Posição / Pontos” pra não esticar */
+#nome{ max-width:520px; }
+#posicao{ max-width:260px; }
+#pontos{ max-width:160px; }
+
+/* botões um pouco menores */
+#btnSalvar, #btnLimpar, #btnPdf{
+  height:32px;
+  min-width:120px;
+}
+
+/* ===== ANIVERSARIANTES mais compacto ===== */
+.bday-card{
+  max-width: 820px;
+  margin: 12px auto 14px; /* centraliza e reduz largura */
+}
+
+.bday-card table{
+  width:100%;
+  table-layout:fixed;
+}
+
+.bday-card th, .bday-card td{
+  padding:6px 8px;
+  font-size:11px;
+}
+
+.bday-card th:nth-child(1), .bday-card td:nth-child(1){ width:60%; text-align:left; }
+.bday-card th:nth-child(2), .bday-card td:nth-child(2){ width:20%; text-align:center; }
+.bday-card th:nth-child(3), .bday-card td:nth-child(3){ width:20%; text-align:center; }
+
+    
     @media print{
       @page{ size: A4 landscape; margin: 10mm; }
 
