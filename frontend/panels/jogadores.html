@@ -8,9 +8,6 @@
   <link rel="stylesheet" href="../app/css/tokens.css" />
   <link rel="stylesheet" href="../app/css/ui.css" />
 
-
-
-  
   <style>
     body{margin:0;background:#0f172a;color:#f9fafb;font-family:Arial,sans-serif;font-size:12px}
     .container{max-width:1400px;margin:0 auto;padding:14px}
@@ -218,6 +215,63 @@ input, select{
 @media (max-width: 1200px){
   .formgrid{ grid-template-columns: 1fr 1fr; }
 }
+/* ===== AJUSTE TAMANHOS (ESQUEMA JORGE) ===== */
+:root{
+  --c-ordem:60px;
+  --c-camisa:70px;
+  --c-apelido:140px;
+  --c-nome:220px;
+  --c-nasc:110px;
+  --c-idade:70px;
+  --c-celular:140px;
+  --c-posicao:60px;
+  --c-hab:60px;
+  --c-vel:60px;
+  --c-mov:60px;
+  --c-pontos:60px;
+  --c-btn:110px;
+}
+
+/* inputs menores */
+input, select{
+  height:32px;
+  padding:6px 10px;
+}
+
+/* força os campos principais a NÃO ficarem gigantes */
+#camisa{max-width:var(--c-camisa)}
+#apelido{max-width:var(--c-apelido)}
+#nome{max-width:var(--c-nome)}
+#data_nasc{max-width:var(--c-nasc)}
+#celular{max-width:var(--c-celular)}
+#posicao{max-width:var(--c-posicao)}
+#habilidade{max-width:var(--c-hab)}
+#velocidade{max-width:var(--c-vel)}
+#movimentacao{max-width:var(--c-mov)}
+#pontos{max-width:var(--c-pontos)}
+
+/* aniversariantes compacto (3 colunas) */
+#bdayBox table{width:auto;table-layout:fixed}
+#bdayBox th:nth-child(1), #bdayBox td:nth-child(1){width:100px}
+#bdayBox th:nth-child(2), #bdayBox td:nth-child(2){width:60px}
+#bdayBox th:nth-child(3), #bdayBox td:nth-child(3){width:60px}
+
+/* tabela principal com larguras fixas (14 colunas) */
+.tblwrap table{table-layout:fixed}
+.tblwrap th:nth-child(1), .tblwrap td:nth-child(1){width:var(--c-ordem)}
+.tblwrap th:nth-child(2), .tblwrap td:nth-child(2){width:var(--c-camisa)}
+.tblwrap th:nth-child(3), .tblwrap td:nth-child(3){width:var(--c-apelido)}
+.tblwrap th:nth-child(4), .tblwrap td:nth-child(4){width:var(--c-nome)}
+.tblwrap th:nth-child(5), .tblwrap td:nth-child(5){width:var(--c-nasc)}
+.tblwrap th:nth-child(6), .tblwrap td:nth-child(6){width:var(--c-idade)}
+.tblwrap th:nth-child(7), .tblwrap td:nth-child(7){width:var(--c-celular)}
+.tblwrap th:nth-child(8), .tblwrap td:nth-child(8){width:var(--c-posicao)}
+.tblwrap th:nth-child(9), .tblwrap td:nth-child(9){width:var(--c-hab)}
+.tblwrap th:nth-child(10), .tblwrap td:nth-child(10){width:var(--c-vel)}
+.tblwrap th:nth-child(11), .tblwrap td:nth-child(11){width:var(--c-mov)}
+.tblwrap th:nth-child(12), .tblwrap td:nth-child(12){width:var(--c-pontos)}
+.tblwrap th:nth-child(13), .tblwrap td:nth-child(13){width:var(--c-btn)}
+.tblwrap th:nth-childth:nth-child(14), .tblwrap td:nth-child(14){width:var(--c-btn)}
 
 <style>
   /* === AJUSTE TAMANHO CAMPOS (REV) === */
@@ -416,12 +470,14 @@ input, select{
   }
 
   async function apiJson(url, opts){
-    const r = await fetch(url, opts);
-    const ct = (r.headers.get("content-type") || "");
-    const isJson = ct.includes("application/json");
-    const data = isJson ? await r.json() : await r.text();
-    return { r, data };
-  }
+  const o = Object.assign({ cache:"no-store" }, (opts||{}));
+  const r = await fetch(url, o);
+  const ct = (r.headers.get("content-type") || "");
+  const isJson = ct.includes("application/json");
+  const data = isJson ? await r.json() : await r.text();
+  return { r, data };
+}
+
 
   function renderBday(){
     const box = $("bdayContent");
@@ -529,7 +585,7 @@ input, select{
 
   async function carregar(){
     setMsg("Carregando lista...", "muted");
-    const { r, data } = await apiJson("/api/jogadores");
+    const { r, data } = await apiJson("/api/jogadores?cb=" + Date.now());
     if(!r.ok){
       setMsg("ERRO ao carregar: " + r.status, "err");
       return;
@@ -574,6 +630,13 @@ input, select{
   async function salvar(){
     const apelido = String($("apelido").value||"").trim();
     if(!apelido){ setMsg("ERRO: informe o APELIDO", "err"); return; }
+// bloqueio de apelido duplicado (case-insensitive)
+const ap = apelido.toLowerCase();
+const dup = cache.some(x => String(x.apelido||"").toLowerCase() === ap && String(x.id) !== String(editId||""));
+if(dup){
+  setMsg("ERRO: APELIDO duplicado", "err");
+  return;
+}
 
     const payload = {
       id: editId,
