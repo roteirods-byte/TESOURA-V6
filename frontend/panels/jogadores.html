@@ -10,62 +10,105 @@
 
   <style>
     body{margin:0;background:#0f172a;color:#f9fafb;font-family:Arial,sans-serif;font-size:12px}
-    .container{max-width:1400px;margin:0 auto;padding:16px}
-    h1{margin:6px 0 14px;color:#f97316;text-transform:uppercase;letter-spacing:.5px}
-    .card{background:#020617;border-radius:12px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.35);border:1px solid #111827;margin-bottom:12px}
+    .container{max-width:1400px;margin:0 auto;padding:14px}
 
+    h1{margin:6px 0 12px;color:#f97316;text-transform:uppercase;letter-spacing:.5px;font-size:18px}
+    .card{background:#020617;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,.35);border:1px solid #111827}
+
+    /* FORM COMPACTO (parecido com o modelo) */
+    .helpbar{
+      margin-top:6px;
+      display:flex;gap:14px;flex-wrap:wrap;
+      font-size:11px;color:#e5e7eb;font-weight:800
+    }
+    .helpbar span{opacity:.95}
     .grid-form{
       display:grid;
-      grid-template-columns: 90px 170px 1.6fr 140px 140px 120px;
-      gap:10px;
+      grid-template-columns: 120px 1.6fr 200px 160px;
+      gap:8px;
       margin-top:10px
     }
     @media (max-width: 1100px){.grid-form{grid-template-columns:1fr 1fr}}
 
-    label{display:block;font-size:10px;color:#cbd5e1;text-transform:uppercase;margin:2px 0 4px}
+    label{display:block;font-size:10px;color:#cbd5e1;text-transform:uppercase;margin:0 0 4px}
     input,select{
       width:100%;box-sizing:border-box;
-      padding:10px;border-radius:10px;border:1px solid #334155;
-      background:rgba(255,255,255,.06);color:#f9fafb;outline:none;
+      padding:7px 10px;border-radius:9px;border:1px solid #334155;
+      background:rgba(255,255,255,.06);color:#f9fafb;
+      outline:none;
+      height:34px;
+      font-size:12px
     }
+    select{height:34px}
 
-    .row-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;justify-content:space-between}
-    .row-actions .left-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    button{
-      padding:8px 12px;border-radius:8px;border:none;cursor:pointer;
-      font-weight:800;text-transform:uppercase;font-size:11px;height:34px;min-width:120px
+    .row-actions{
+      display:flex;gap:10px;flex-wrap:wrap;
+      margin-top:10px;align-items:center;justify-content:flex-end
     }
-    .btn-ok{background:#22c55e;color:#022c22}
+    button{
+      padding:8px 12px;border-radius:10px;border:none;cursor:pointer;
+      font-weight:900;text-transform:uppercase;font-size:11px;height:34px;min-width:120px
+    }
+    .btn-ok{background:#22c55e;color:#052e16}
     .btn-warn{background:#f97316;color:#0f172a}
-    .btn-info{background:#0ea5e9;color:#0f172a}
+    .btn-info{background:#0ea5e9;color:#06162f}
+
     .muted{color:#cbd5e1}
-    .msg{margin-top:8px;min-height:18px;font-weight:700}
+    .msg{margin-top:8px;min-height:18px;font-weight:900;font-size:12px}
     .msg.ok{color:#22c55e}
     .msg.err{color:#ef4444}
 
+    /* ANIVERSARIANTES */
+    .bday-card{
+      margin-top:10px;
+      border:1px solid #111827;
+      background:#0b1120;
+      border-radius:12px;
+      padding:10px
+    }
+    .bday-title{
+      color:#f97316;font-weight:900;text-transform:uppercase;font-size:12px;
+      margin:0 0 8px 0;letter-spacing:.4px
+    }
+    .bday-empty{color:#e5e7eb;opacity:.85;font-weight:800}
+
+    .bday-table{width:100%;border-collapse:collapse;font-size:11px}
+    .bday-table th,.bday-table td{border:1px solid #334155;padding:6px 8px;text-align:center;text-transform:uppercase;white-space:nowrap}
+    .bday-table th{background:#111827;color:#f97316}
+
+    /* TABELA */
     table{width:100%;border-collapse:collapse;margin-top:10px;background:#020617;font-size:11px}
     th,td{border:1px solid #334155;padding:6px 8px;text-align:center;text-transform:uppercase;white-space:nowrap}
     th{background:#111827;color:#f97316;position:sticky;top:0;z-index:1}
     tr:nth-child(even){background:#0b1120}
     tr:nth-child(odd){background:#020617}
-    .tblwrap{max-height:520px;overflow:auto;border-radius:10px;margin-top:10px}
+    .tblwrap{max-height:420px;overflow:auto;border-radius:10px;margin-top:10px}
+
     .btn-mini{height:28px;min-width:88px;padding:0 10px;border-radius:8px;font-size:10px}
     .btn-edit{background:#38bdf8;color:#0f172a}
     .btn-del{background:#ef4444;color:#fff}
     .left{text-align:left}
 
-    .subttl{margin:0 0 6px 0;color:#f97316;font-weight:900;text-transform:uppercase;letter-spacing:.4px}
-    .hint{color:#cbd5e1;font-size:11px}
-
-    /* ===== PRINT / PDF: imprimir o ARQUIVO TODO (tabela inteira) ===== */
-    @page { size: A4 landscape; margin: 10mm; }
+    /* PDF: imprimir TUDO (sem scroll) e em PAISAGEM */
     @media print{
+      @page{ size: A4 landscape; margin: 10mm; }
+
       .no-print{display:none !important}
+
       body{background:#fff !important;color:#000 !important}
-      .card{box-shadow:none !important;border:none !important}
-      th{background:#eee !important;color:#000 !important;position:static !important}
+      .container{padding:0 !important}
+      .card{box-shadow:none !important;border:none !important;background:#fff !important}
+
+      /* remove “tabela com scroll” no print */
+      .tblwrap{max-height:none !important; overflow:visible !important; border-radius:0 !important}
+
+      th{background:#eee !important;color:#000 !important; position:static !important}
       tr:nth-child(even),tr:nth-child(odd){background:#fff !important}
-      .tblwrap{max-height:none !important;overflow:visible !important}
+
+      /* caber melhor */
+      table, .bday-table{font-size:9.5px !important}
+      th,td{padding:4px 6px !important}
+
       *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     }
   </style>
@@ -75,47 +118,32 @@
   <div class="container">
     <h1>TESOURA - JOGADORES</h1>
 
-    <!-- ANIVERSARIANTES DO MÊS -->
-    <div class="card" id="cardAnivers" style="display:none">
-      <div class="subttl">ANIVERSARIANTES DO MÊS</div>
-      <div class="hint">APELIDO - DIA - IDADE</div>
-
-      <div class="tblwrap" style="max-height:260px">
-        <table>
-          <thead>
-            <tr>
-              <th class="left">Apelido</th>
-              <th>Dia</th>
-              <th>Idade</th>
-            </tr>
-          </thead>
-          <tbody id="tbodyAnivers"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- FORM + LISTA -->
     <div class="card">
+      <!-- FORM -->
       <div class="no-print">
+        <div class="helpbar">
+          <span>POSIÇÃO (Z/L/M/A): ZAGUEIRO / LATERAL / MEIO / ATAQUE</span>
+          <span>HABILIDADE (1–5)</span>
+          <span>VELOCIDADE (1–L, 2–N, 3–I)</span>
+          <span>MOVIMENTAÇÃO (1–P, 2–N, 3–I)</span>
+        </div>
+
         <div class="grid-form">
           <div>
             <label>Camisa</label>
             <input id="camisa" placeholder="Nº" inputmode="numeric" />
           </div>
-
-          <div>
-            <label>Apelido (único) *</label>
-            <input id="apelido" placeholder="Apelido" />
-          </div>
-
           <div>
             <label>Nome</label>
             <input id="nome" placeholder="Nome completo" />
           </div>
-
           <div>
-            <label>Data Nasc.</label>
-            <input id="data_nasc" placeholder="AAAA-MM-DD ou DD/MM/AAAA" />
+            <label>Apelido (único) *</label>
+            <input id="apelido" placeholder="Apelido" />
+          </div>
+          <div>
+            <label>Nascimento</label>
+            <input id="data_nasc" placeholder="AAAA-MM-DD" />
           </div>
 
           <div>
@@ -124,16 +152,11 @@
           </div>
 
           <div>
-            <label>Pontos</label>
-            <input id="pontos" placeholder="0" inputmode="numeric" />
-          </div>
-
-          <!-- CLASSIFICAÇÃO (como no seu print) -->
-          <div>
-            <label>Posição (D/M/A)</label>
+            <label>Posição (Z/L/M/A)</label>
             <select id="posicao">
               <option value="">-</option>
-              <option value="D">D</option>
+              <option value="Z">Z</option>
+              <option value="L">L</option>
               <option value="M">M</option>
               <option value="A">A</option>
             </select>
@@ -141,39 +164,28 @@
 
           <div>
             <label>Habilidade (1–5)</label>
-            <select id="hab">
-              <option value="">-</option>
-              <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-            </select>
+            <input id="habilidade" placeholder="1-5" inputmode="numeric" />
+          </div>
+          <div>
+            <label>Velocidade (1–3)</label>
+            <input id="velocidade" placeholder="1-3" inputmode="numeric" />
           </div>
 
           <div>
-            <label>Velocidade (1–L,2–N,3–I)</label>
-            <select id="vel">
-              <option value="">-</option>
-              <option value="1">1 - L</option>
-              <option value="2">2 - N</option>
-              <option value="3">3 - I</option>
-            </select>
+            <label>Movimentação (1–3)</label>
+            <input id="movimentacao" placeholder="1-3" inputmode="numeric" />
           </div>
-
           <div>
-            <label>Movimentação (1–P,2–N,3–I)</label>
-            <select id="mov">
-              <option value="">-</option>
-              <option value="1">1 - P</option>
-              <option value="2">2 - N</option>
-              <option value="3">3 - I</option>
-            </select>
+            <label>Pontos</label>
+            <input id="pontos" placeholder="0" inputmode="numeric" />
           </div>
 
           <div style="display:flex;align-items:end;gap:10px">
             <button class="btn-ok" id="btnSalvar">Salvar</button>
             <button class="btn-warn" id="btnLimpar">Limpar</button>
           </div>
-
           <div style="display:flex;align-items:end;justify-content:flex-end">
-            <button class="btn-info" id="btnPdf">Baixar PDF (Arquivo)</button>
+            <button class="btn-info" id="btnPdf">Baixar PDF</button>
           </div>
         </div>
 
@@ -181,6 +193,13 @@
         <div class="muted" id="total"></div>
       </div>
 
+      <!-- ANIVERSARIANTES -->
+      <div class="bday-card" id="bdayBox">
+        <div class="bday-title" id="bdayTitle">ANIVERSARIANTES DO MÊS</div>
+        <div id="bdayContent" class="bday-empty">Carregando...</div>
+      </div>
+
+      <!-- TABELA -->
       <div class="tblwrap" id="wrapTabela">
         <table>
           <thead>
@@ -204,6 +223,7 @@
           <tbody id="tbody"></tbody>
         </table>
       </div>
+
     </div>
   </div>
 
@@ -215,6 +235,7 @@
 
   function setMsg(text, type){
     const el = $("msg");
+    if(!el) return;
     el.textContent = text || "";
     el.className = "msg " + (type || "muted");
   }
@@ -231,48 +252,28 @@
     return t ? t : null;
   }
 
-  function normalizeDate(s){
+  function pad2(n){ return String(n).padStart(2,"0"); }
+
+  function parseDateYYYYMMDD(s){
     const t = String(s||"").trim();
     if(!t) return null;
-    if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
-    const m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if(m) return `${m[3]}-${m[2]}-${m[1]}`;
-    return t; // deixa como veio (se já estiver ok no backend)
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+    if(!m) return null;
+    const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+    if(!y || mo<1 || mo>12 || d<1 || d>31) return null;
+    const dt = new Date(y, mo-1, d);
+    if(dt.getFullYear()!==y || (dt.getMonth()+1)!==mo || dt.getDate()!==d) return null;
+    return dt;
   }
 
-  function fmtDateBR(iso){
-    const t = String(iso||"").trim();
-    const m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if(!m) return (t || "");
-    return `${m[3]}/${m[2]}/${m[1]}`;
-  }
-
-  function calcAge(iso){
-    const t = String(iso||"").trim();
-    const m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if(!m) return "";
-    const y = Number(m[1]), mm = Number(m[2])-1, dd = Number(m[3]);
-    const today = new Date();
-    let age = today.getFullYear() - y;
-    const hadBirthday = (today.getMonth() > mm) || (today.getMonth() === mm && today.getDate() >= dd);
-    if(!hadBirthday) age -= 1;
-    return (age >= 0 && age <= 120) ? String(age) : "";
-  }
-
-  function velLabel(n){
-    const v = Number(n);
-    if(v === 1) return "L";
-    if(v === 2) return "N";
-    if(v === 3) return "I";
-    return "";
-  }
-
-  function movLabel(n){
-    const v = Number(n);
-    if(v === 1) return "P";
-    if(v === 2) return "N";
-    if(v === 3) return "I";
-    return "";
+  function calcIdade(dateStr){
+    const dt = parseDateYYYYMMDD(dateStr);
+    if(!dt) return "";
+    const now = new Date();
+    let age = now.getFullYear() - dt.getFullYear();
+    const m = now.getMonth() - dt.getMonth();
+    if(m < 0 || (m === 0 && now.getDate() < dt.getDate())) age--;
+    return age >= 0 ? age : "";
   }
 
   async function apiJson(url, opts){
@@ -283,64 +284,62 @@
     return { r, data };
   }
 
-  function renderAniversariantes(items){
-    const card = $("cardAnivers");
-    const tb = $("tbodyAnivers");
-    tb.innerHTML = "";
-
+  function renderBday(){
+    const box = $("bdayContent");
+    const title = $("bdayTitle");
     const now = new Date();
     const mes = now.getMonth(); // 0-11
     const ano = now.getFullYear();
 
-    const anivers = items
-      .filter(it => (it.data_nasc || it.data_nascimento))
-      .map(it => {
-        const dn = String(it.data_nasc || it.data_nascimento || "").trim();
-        const m = dn.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if(!m) return null;
-        const mm = Number(m[2]) - 1;
-        const dd = Number(m[3]);
-        if(mm !== mes) return null;
+    const meses = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
+    if(title) title.textContent = "ANIVERSARIANTES DO MÊS - " + meses[mes] + " / " + ano;
 
-        // idade no dia do aniversario (no ano corrente)
-        let idade = ano - Number(m[1]);
-        return { apelido: it.apelido || "", dia: dd, idade: idade };
+    const items = (cache||[])
+      .map(p => {
+        const dt = parseDateYYYYMMDD(p.data_nasc);
+        if(!dt) return null;
+        if(dt.getMonth() !== mes) return null;
+        const dia = dt.getDate();
+        const idade = calcIdade(p.data_nasc);
+        return { apelido: (p.apelido||""), dia, idade };
       })
       .filter(Boolean)
       .sort((a,b)=> a.dia - b.dia || String(a.apelido).localeCompare(String(b.apelido)));
 
-    if(!anivers.length){
-      card.style.display = "none";
+    if(!box) return;
+
+    if(items.length === 0){
+      box.innerHTML = `<div class="bday-empty">Nenhum aniversariante neste mês.</div>`;
       return;
     }
 
-    card.style.display = "block";
-
-    for(const a of anivers){
-      const tr = document.createElement("tr");
-      const td1 = document.createElement("td");
-      td1.className = "left";
-      td1.textContent = a.apelido;
-      const td2 = document.createElement("td");
-      td2.textContent = String(a.dia);
-      const td3 = document.createElement("td");
-      td3.textContent = String(a.idade);
-      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
-      tb.appendChild(tr);
+    let html = `<table class="bday-table">
+      <thead><tr><th class="left">Apelido</th><th>Dia</th><th>Idade</th></tr></thead><tbody>`;
+    for(const it of items){
+      html += `<tr>
+        <td class="left">${String(it.apelido||"").toUpperCase()}</td>
+        <td>${pad2(it.dia)}</td>
+        <td>${it.idade}</td>
+      </tr>`;
     }
+    html += `</tbody></table>`;
+    box.innerHTML = html;
   }
 
   function render(){
     const tb = $("tbody");
     tb.innerHTML = "";
 
-    // ORDEM = 1..N (pela ordem alfabética do apelido)
+    // ordem alfabética por apelido
     const items = [...cache].sort((a,b)=> String(a.apelido||"").localeCompare(String(b.apelido||"")));
     $("total").textContent = "TOTAL DE JOGADORES: " + items.length;
 
-    renderAniversariantes(items);
+    // ORDEM = 1..n (baseado na lista ordenada)
+    let ordem = 0;
 
-    items.forEach((it, idx) => {
+    for(const it of items){
+      ordem++;
+
       const tr = document.createElement("tr");
 
       function td(text, cls){
@@ -350,29 +349,18 @@
         return d;
       }
 
-      const dataNasc = it.data_nasc || it.data_nascimento || "";
-      const idade = calcAge(String(dataNasc||""));
-
-      tr.appendChild(td(idx + 1));                    // ORDEM
-      tr.appendChild(td(it.camisa ?? it.numero_camisa ?? "")); // CAMISA
-      tr.appendChild(td(it.apelido, "left"));         // APELIDO
-      tr.appendChild(td(it.nome ?? it.nome_completo ?? "", "left")); // NOME
-      tr.appendChild(td(fmtDateBR(dataNasc)));        // DATA NASC
-      tr.appendChild(td(idade));                      // IDADE
-      tr.appendChild(td(it.celular ?? ""));           // CELULAR
-      tr.appendChild(td(it.posicao ?? ""));           // POSIÇÃO
-
-      const hab = it.hab ?? it.habilidade ?? "";
-      const vel = it.vel ?? it.velocidade ?? "";
-      const mov = it.mov ?? it.movimentacao ?? "";
-
-      tr.appendChild(td(hab)); // HAB
-
-      // VEL / MOV: mostrar numero + letra
-      tr.appendChild(td(vel ? `${vel} (${velLabel(vel)})` : "")); // VEL
-      tr.appendChild(td(mov ? `${mov} (${movLabel(mov)})` : "")); // MOV
-
-      tr.appendChild(td(it.pontos ?? it.pontos_totais ?? 0));     // PONTOS
+      tr.appendChild(td(ordem));
+      tr.appendChild(td(it.camisa ?? ""));
+      tr.appendChild(td(it.apelido ?? "", "left"));
+      tr.appendChild(td(it.nome ?? "", "left"));
+      tr.appendChild(td(it.data_nasc ?? ""));
+      tr.appendChild(td(calcIdade(it.data_nasc)));
+      tr.appendChild(td(it.celular ?? ""));
+      tr.appendChild(td(it.posicao ?? ""));
+      tr.appendChild(td(it.habilidade ?? ""));
+      tr.appendChild(td(it.velocidade ?? ""));
+      tr.appendChild(td(it.movimentacao ?? ""));
+      tr.appendChild(td(it.pontos ?? 0));
 
       // EDITAR
       const tEdit = document.createElement("td");
@@ -395,7 +383,9 @@
       tr.appendChild(tDel);
 
       tb.appendChild(tr);
-    });
+    }
+
+    renderBday();
   }
 
   async function carregar(){
@@ -416,35 +406,29 @@
     $("camisa").value = "";
     $("nome").value = "";
     $("apelido").value = "";
-    $("data_nasc").value = "";
     $("celular").value = "";
     $("posicao").value = "";
-    $("hab").value = "";
-    $("vel").value = "";
-    $("mov").value = "";
+    $("habilidade").value = "";
+    $("velocidade").value = "";
+    $("movimentacao").value = "";
+    $("data_nasc").value = "";
     $("pontos").value = "0";
-    setMsg("Pronto.", "muted");
   }
 
   function preencherEdicao(it){
-    editId = it.id ?? null;
-
+    editId = it.id;
     $("btnSalvar").textContent = "Atualizar";
-
-    $("camisa").value = (it.camisa ?? it.numero_camisa ?? "");
+    $("camisa").value = (it.camisa ?? "");
+    $("nome").value = (it.nome ?? "");
     $("apelido").value = (it.apelido ?? "");
-    $("nome").value = (it.nome ?? it.nome_completo ?? "");
-    $("data_nasc").value = (it.data_nasc ?? it.data_nascimento ?? "");
     $("celular").value = (it.celular ?? "");
-
     $("posicao").value = (it.posicao ?? "");
-    $("hab").value = (it.hab ?? it.habilidade ?? "");
-    $("vel").value = (it.vel ?? it.velocidade ?? "");
-    $("mov").value = (it.mov ?? it.movimentacao ?? "");
-
-    $("pontos").value = (it.pontos ?? it.pontos_totais ?? 0);
-
-    setMsg("Editando: " + (it.apelido||""), "muted");
+    $("habilidade").value = (it.habilidade ?? "");
+    $("velocidade").value = (it.velocidade ?? "");
+    $("movimentacao").value = (it.movimentacao ?? "");
+    $("data_nasc").value = (it.data_nasc ?? "");
+    $("pontos").value = (it.pontos ?? 0);
+    setMsg("Editando jogador: " + (it.apelido||""), "muted");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -455,22 +439,19 @@
     const payload = {
       id: editId,
       camisa: toIntOrNull($("camisa").value),
-      apelido,
       nome: valOrNull($("nome").value) || "",
-      data_nasc: normalizeDate($("data_nasc").value),
+      apelido,
       celular: valOrNull($("celular").value),
-
       posicao: valOrNull($("posicao").value),
-      hab: toIntOrNull($("hab").value),
-      vel: toIntOrNull($("vel").value),
-      mov: toIntOrNull($("mov").value),
-
+      habilidade: toIntOrNull($("habilidade").value),
+      velocidade: toIntOrNull($("velocidade").value),
+      movimentacao: toIntOrNull($("movimentacao").value),
+      data_nasc: valOrNull($("data_nasc").value),
       pontos: toIntOrNull($("pontos").value) ?? 0
     };
 
     setMsg(editId ? "Atualizando..." : "Salvando...", "muted");
 
-    // tentativa 1: PUT /api/jogadores/:id
     if(editId){
       let { r } = await apiJson("/api/jogadores/" + encodeURIComponent(editId), {
         method: "PUT",
@@ -478,7 +459,6 @@
         body: JSON.stringify(payload)
       });
 
-      // fallback: POST com id
       if(r.status === 404 || r.status === 405){
         ({ r } = await apiJson("/api/jogadores", {
           method: "POST",
@@ -494,7 +474,6 @@
       return;
     }
 
-    // novo: POST
     const { r } = await apiJson("/api/jogadores", {
       method: "POST",
       headers: { "Content-Type":"application/json" },
@@ -511,19 +490,14 @@
     if(!confirm("Excluir jogador: " + (it.apelido||"") + " ?")) return;
     setMsg("Excluindo...", "muted");
 
-    let id = it.id;
-    if(!id){ setMsg("ERRO: ID não encontrado", "err"); return; }
+    let { r } = await apiJson("/api/jogadores/" + encodeURIComponent(it.id), { method:"DELETE" });
 
-    // tentativa 1: DELETE /api/jogadores/:id
-    let { r } = await apiJson("/api/jogadores/" + encodeURIComponent(id), { method:"DELETE" });
-
-    // fallback: DELETE /api/jogadores?id=...
     if(r.status === 404 || r.status === 405){
-      ({ r } = await apiJson("/api/jogadores?id=" + encodeURIComponent(id), { method:"DELETE" }));
+      ({ r } = await apiJson("/api/jogadores?id=" + encodeURIComponent(it.id), { method:"DELETE" }));
     }
 
     if(!r.ok){
-      setMsg("ERRO ao excluir ("+r.status+")", "err");
+      setMsg("ERRO ao excluir: " + r.status, "err");
       return;
     }
     setMsg("OK: excluído", "ok");
