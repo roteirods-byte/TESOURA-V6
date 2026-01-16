@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="../app/css/tokens.css" />
   <link rel="stylesheet" href="../app/css/ui.css" />
 
+
+
+  
   <style>
     body{margin:0;background:#0f172a;color:#f9fafb;font-family:Arial,sans-serif;font-size:12px}
     .container{max-width:1400px;margin:0 auto;padding:14px}
@@ -111,7 +114,45 @@
 
       *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     }
-  </style>
+
+<style>
+  /* === AJUSTE TAMANHO CAMPOS (REV) === */
+  #nome{ max-width:520px; }
+  #posicao{ max-width:240px; }
+  #pontos{ max-width:180px; }
+
+  /* opcional: deixa os inputs “mais compactos” */
+  input, select { height:36px; padding:8px 10px; }
+
+/* =========================
+   ANIVERSARIANTES (compacto)
+   ========================= */
+.bday-card{
+  max-width: 920px;
+  margin: 12px auto 16px;
+}
+
+.bday-card table{
+  width: 100%;
+  table-layout: fixed;
+}
+
+.bday-card th,
+.bday-card td{
+  padding: 6px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bday-card th:nth-child(1), .bday-card td:nth-child(1){ width: 62%; text-align:left; }
+.bday-card th:nth-child(2), .bday-card td:nth-child(2){ width: 19%; }
+.bday-card th:nth-child(3), .bday-card td:nth-child(3){ width: 19%; }
+
+    
+</style>
+     
 </head>
 
 <body>
