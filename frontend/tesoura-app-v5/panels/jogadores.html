@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TESOURA - JOGADORES</title>
+
+  <link rel="stylesheet" href="../app/css/tokens.css" />
+  <link rel="stylesheet" href="../app/css/ui.css" />
+
+
+
+  
+  <style>
+    body{margin:0;background:#0f172a;color:#f9fafb;font-family:Arial,sans-serif;font-size:12px}
+    .container{max-width:1400px;margin:0 auto;padding:14px}
+
+    h1{margin:6px 0 12px;color:#f97316;text-transform:uppercase;letter-spacing:.5px;font-size:18px}
+    .card{background:#020617;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,.35);border:1px solid #111827}
+
+    /* FORM COMPACTO (parecido com o modelo) */
+    .helpbar{
+      margin-top:6px;
+      display:flex;gap:14px;flex-wrap:wrap;
+      font-size:11px;color:#e5e7eb;font-weight:800
+    }
+    .helpbar span{opacity:.95}
+    .grid-form{
+      display:grid;
+      grid-template-columns: 120px 1.6fr 200px 160px;
+      gap:8px;
+      margin-top:10px
+    }
+    @media (max-width: 1100px){.grid-form{grid-template-columns:1fr 1fr}}
+
+    label{display:block;font-size:10px;color:#cbd5e1;text-transform:uppercase;margin:0 0 4px}
+    input,select{
+      width:100%;box-sizing:border-box;
+      padding:7px 10px;border-radius:9px;border:1px solid #334155;
+      background:rgba(255,255,255,.06);color:#f9fafb;
+      outline:none;
+      height:34px;
+      font-size:12px
+    }
+    select{height:34px}
+
+    .row-actions{
+      display:flex;gap:10px;flex-wrap:wrap;
+      margin-top:10px;align-items:center;justify-content:flex-end
+    }
+    button{
+      padding:8px 12px;border-radius:10px;border:none;cursor:pointer;
+      font-weight:900;text-transform:uppercase;font-size:11px;height:34px;min-width:120px
+    }
+    .btn-ok{background:#22c55e;color:#052e16}
+    .btn-warn{background:#f97316;color:#0f172a}
+    .btn-info{background:#0ea5e9;color:#06162f}
+
+    .muted{color:#cbd5e1}
+    .msg{margin-top:8px;min-height:18px;font-weight:900;font-size:12px}
+    .msg.ok{color:#22c55e}
+    .msg.err{color:#ef4444}
+
+    /* ANIVERSARIANTES */
+    .bday-card{
+      margin-top:10px;
+      border:1px solid #111827;
+      background:#0b1120;
+      border-radius:12px;
+      padding:10px
+    }
+    .bday-title{
+      color:#f97316;font-weight:900;text-transform:uppercase;font-size:12px;
+      margin:0 0 8px 0;letter-spacing:.4px
+    }
+    .bday-empty{color:#e5e7eb;opacity:.85;font-weight:800}
+
+    .bday-table{width:100%;border-collapse:collapse;font-size:11px}
+    .bday-table th,.bday-table td{border:1px solid #334155;padding:6px 8px;text-align:center;text-transform:uppercase;white-space:nowrap}
+    .bday-table th{background:#111827;color:#f97316}
+
+    /* TABELA */
+    table{width:100%;border-collapse:collapse;margin-top:10px;background:#020617;font-size:11px}
+    th,td{border:1px solid #334155;padding:6px 8px;text-align:center;text-transform:uppercase;white-space:nowrap}
+    th{background:#111827;color:#f97316;position:sticky;top:0;z-index:1}
+    tr:nth-child(even){background:#0b1120}
+    tr:nth-child(odd){background:#020617}
+    .tblwrap{max-height:420px;overflow:auto;border-radius:10px;margin-top:10px}
+
+    .btn-mini{height:28px;min-width:88px;padding:0 10px;border-radius:8px;font-size:10px}
+    .btn-edit{background:#38bdf8;color:#0f172a}
+    .btn-del{background:#ef4444;color:#fff}
+    .left{text-align:left}
+
+    /* PDF: imprimir TUDO (sem scroll) e em PAISAGEM */
+    @media print{
+      @page{ size: A4 landscape; margin: 10mm; }
+
+      .no-print{display:none !important}
+
+      body{background:#fff !important;color:#000 !important}
+      .container{padding:0 !important}
+      .card{box-shadow:none !important;border:none !important;background:#fff !important}
+
+      /* remove “tabela com scroll” no print */
+      .tblwrap{max-height:none !important; overflow:visible !important; border-radius:0 !important}
+
+      th{background:#eee !important;color:#000 !important; position:static !important}
+      tr:nth-child(even),tr:nth-child(odd){background:#fff !important}
+
+      /* caber melhor */
+      table, .bday-table{font-size:9.5px !important}
+      th,td{padding:4px 6px !important}
+
+      *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    }
+
+<style>
+  /* === AJUSTE TAMANHO CAMPOS (REV) === */
+  #nome{ max-width:520px; }
+  #posicao{ max-width:240px; }
+  #pontos{ max-width:180px; }
+
+  /* opcional: deixa os inputs “mais compactos” */
+  input, select { height:36px; padding:8px 10px; }
+
+/* =========================
+   ANIVERSARIANTES (compacto)
+   ========================= */
+.bday-card{
+  max-width: 920px;
+  margin: 12px auto 16px;
+}
+
+.bday-card table{
+  width: 100%;
+  table-layout: fixed;
+}
+
+.bday-card th,
+.bday-card td{
+  padding: 6px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bday-card th:nth-child(1), .bday-card td:nth-child(1){ width: 62%; text-align:left; }
+.bday-card th:nth-child(2), .bday-card td:nth-child(2){ width: 19%; }
+.bday-card th:nth-child(3), .bday-card td:nth-child(3){ width: 19%; }
+
+    
+
+/* === JORGE_LAYOUT_V1_START === */
+:root{
+  --w-camisa:70px;
+  --w-apelido:140px;
+  --w-nome:220px;
+  --w-nasc:110px;
+  --w-cel:140px;
+  --w-pos:60px;
+  --w-60:60px;
+  --w-edit:110px;
+  --w-exc:110px;
+}
+
+/* inputs mais compactos */
+input, select{ height:34px; padding:6px 10px; }
+label{ margin-bottom:6px; }
+
+/* tenta padronizar a “área do formulário” sem quebrar seu HTML atual */
+.card .grid, .card .form-grid, .card .fields, #formJogador, #playerForm{
+  display:grid !important;
+  grid-template-columns: var(--w-camisa) var(--w-apelido) var(--w-nome) var(--w-nasc) var(--w-cel) var(--w-pos) var(--w-60) var(--w-60) var(--w-60) var(--w-60);
+  gap:10px 12px;
+  align-items:end;
+}
+
+/* trava larguras por ID (se existirem no seu HTML) */
+#camisa{ width:var(--w-camisa) !important; }
+#apelido{ width:var(--w-apelido) !important; }
+#nome{ width:var(--w-nome) !important; }
+#nascimento{ width:var(--w-nasc) !important; }
+#celular{ width:var(--w-cel) !important; }
+#posicao{ width:var(--w-pos) !important; }
+#habilidade,#hab{ width:var(--w-60) !important; }
+#velocidade,#vel{ width:var(--w-60) !important; }
+#movimentacao,#mov{ width:var(--w-60) !important; }
+#pontos{ width:var(--w-60) !important; }
+
+/* ANIVERSARIANTES: 100 / 60 / 60 */
+#bdayBox table{ width:100%; table-layout:fixed; }
+#bdayBox th:nth-child(1), #bdayBox td:nth-child(1){ width:100px; }
+#bdayBox th:nth-child(2), #bdayBox td:nth-child(2){ width:60px; }
+#bdayBox th:nth-child(3), #bdayBox td:nth-child(3){ width:60px; }
+
+/* TABELA principal: força colunas do seu esquema */
+table.players-table, #playersTable{
+  table-layout:fixed;
+}
+table.players-table th:nth-child(1), table.players-table td:nth-child(1){ width:60px; }   /* Ordem */
+table.players-table th:nth-child(2), table.players-table td:nth-child(2){ width:70px; }   /* Camisa */
+table.players-table th:nth-child(3), table.players-table td:nth-child(3){ width:140px; }  /* Apelido */
+table.players-table th:nth-child(4), table.players-table td:nth-child(4){ width:220px; }  /* Nome */
+table.players-table th:nth-child(5), table.players-table td:nth-child(5){ width:110px; }  /* Data Nasc */
+table.players-table th:nth-child(6), table.players-table td:nth-child(6){ width:70px; }   /* Idade */
+table.players-table th:nth-child(7), table.players-table td:nth-child(7){ width:140px; }  /* Celular */
+table.players-table th:nth-child(8), table.players-table td:nth-child(8){ width:60px; }   /* Posição */
+table.players-table th:nth-child(9), table.players-table td:nth-child(9){ width:60px; }   /* Hab */
+table.players-table th:nth-child(10), table.players-table td:nth-child(10){ width:60px; } /* Vel */
+table.players-table th:nth-child(11), table.players-table td:nth-child(11){ width:60px; } /* Mov */
+table.players-table th:nth-child(12), table.players-table td:nth-child(12){ width:60px; } /* Pontos */
+table.players-table th:nth-child(13), table.players-table td:nth-child(13){ width:110px; }/* Editar */
+table.players-table th:nth-child(14), table.players-table td:nth-child(14){ width:110px; }/* Excluir */
+/* === JORGE_LAYOUT_V1_END === */
+
+</style>
+     
+</head>
+
+<body>
+  <div class="container">
+    <h1>TESOURA - JOGADORES</h1>
+<div style="color:#22c55e;font-weight:900;margin:6px 0">REV JOGADORES: 16/01 11:25</div>
+    <div class="card">
+      <!-- FORM -->
+      <div class="no-print">
+        <div class="helpbar">
+          <span>POSIÇÃO (Z/L/M/A): ZAGUEIRO / LATERAL / MEIO / ATAQUE</span>
+          <span>HABILIDADE (1–5)</span>
+          <span>VELOCIDADE (1–L, 2–N, 3–I)</span>
+          <span>MOVIMENTAÇÃO (1–P, 2–N, 3–I)</span>
+        </div>
+
+        <div class="grid-form">
+          <div>
+            <label>Camisa</label>
+            <input id="camisa" placeholder="Nº" inputmode="numeric" />
+          </div>
+          <div>
+            <label>Nome</label>
+            <input id="nome" placeholder="Nome completo" />
+          </div>
+          <div>
+            <label>Apelido (único) *</label>
+            <input id="apelido" placeholder="Apelido" />
+          </div>
+          <div>
+            <label>Nascimento</label>
+            <input id="data_nasc" placeholder="AAAA-MM-DD" />
+          </div>
+
+          <div>
+            <label>Celular</label>
+            <input id="celular" placeholder="DDD + número" />
+          </div>
+
+          <div>
+            <label>Posição (Z/L/M/A)</label>
+            <input id="posicao" type="text" maxlength="1" placeholder="Z/L/M/A" />
+          </div>
+
+          <div>
+            <label>Habilidade (1–5)</label>
+            <input id="habilidade" placeholder="1-5" inputmode="numeric" />
+          </div>
+          <div>
+            <label>Velocidade (1–3)</label>
+            <input id="velocidade" placeholder="1-3" inputmode="numeric" />
+          </div>
+
+          <div>
+            <label>Movimentação (1–3)</label>
+            <input id="movimentacao" placeholder="1-3" inputmode="numeric" />
+          </div>
+          <div>
+            <label>Pontos</label>
+            <input id="pontos" placeholder="0" inputmode="numeric" />
+          </div>
+
+          <div style="display:flex;align-items:end;gap:10px">
+            <button class="btn-ok" id="btnSalvar">Salvar</button>
+            <button class="btn-warn" id="btnLimpar">Limpar</button>
+          </div>
+          <div style="display:flex;align-items:end;justify-content:flex-end">
+            <button class="btn-info" id="btnPdf">Baixar PDF</button>
+          </div>
+        </div>
+
+        <div class="msg muted" id="msg">Carregando lista...</div>
+        <div class="muted" id="total"></div>
+      </div>
+
+      <!-- ANIVERSARIANTES -->
+      <div class="bday-card" id="bdayBox">
+        <div class="bday-title" id="bdayTitle">ANIVERSARIANTES DO MÊS</div>
+        <div id="bdayContent" class="bday-empty">Carregando...</div>
+      </div>
+
+      <!-- TABELA -->
+      <div class="tblwrap" id="wrapTabela">
+        <table>
+          <thead>
+            <tr>
+              <th>Ordem</th>
+              <th>Camisa</th>
+              <th class="left">Apelido</th>
+              <th class="left">Nome</th>
+              <th>Data Nasc.</th>
+              <th>Idade</th>
+              <th>Celular</th>
+              <th>Posição</th>
+              <th>Hab</th>
+              <th>Vel</th>
+              <th>Mov</th>
+              <th>Pontos</th>
+              <th class="no-print">Editar</th>
+              <th class="no-print">Excluir</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  let editId = null;
+  let cache = [];
+
+  function setMsg(text, type){
+    const el = $("msg");
+    if(!el) return;
+    el.textContent = text || "";
+    el.className = "msg " + (type || "muted");
+  }
+
+  function toIntOrNull(v){
+    const t = String(v||"").trim();
+    if(!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function valOrNull(v){
+    const t = String(v||"").trim();
+    return t ? t : null;
+  }
+
+  function pad2(n){ return String(n).padStart(2,"0"); }
+
+  function parseDateYYYYMMDD(s){
+    const t = String(s||"").trim();
+    if(!t) return null;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+    if(!m) return null;
+    const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+    if(!y || mo<1 || mo>12 || d<1 || d>31) return null;
+    const dt = new Date(y, mo-1, d);
+    if(dt.getFullYear()!==y || (dt.getMonth()+1)!==mo || dt.getDate()!==d) return null;
+    return dt;
+  }
+
+  function calcIdade(dateStr){
+    const dt = parseDateYYYYMMDD(dateStr);
+    if(!dt) return "";
+    const now = new Date();
+    let age = now.getFullYear() - dt.getFullYear();
+    const m = now.getMonth() - dt.getMonth();
+    if(m < 0 || (m === 0 && now.getDate() < dt.getDate())) age--;
+    return age >= 0 ? age : "";
+  }
+
+  async function apiJson(url, opts){
+    const r = await fetch(url, opts);
+    const ct = (r.headers.get("content-type") || "");
+    const isJson = ct.includes("application/json");
+    const data = isJson ? await r.json() : await r.text();
+    return { r, data };
+  }
+
+  function renderBday(){
+    const box = $("bdayContent");
+    const title = $("bdayTitle");
+    const now = new Date();
+    const mes = now.getMonth(); // 0-11
+    const ano = now.getFullYear();
+
+    const meses = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
+    if(title) title.textContent = "ANIVERSARIANTES DO MÊS - " + meses[mes] + " / " + ano;
+
+    const items = (cache||[])
+      .map(p => {
+        const dt = parseDateYYYYMMDD(p.data_nasc);
+        if(!dt) return null;
+        if(dt.getMonth() !== mes) return null;
+        const dia = dt.getDate();
+        const idade = calcIdade(p.data_nasc);
+        return { apelido: (p.apelido||""), dia, idade };
+      })
+      .filter(Boolean)
+      .sort((a,b)=> a.dia - b.dia || String(a.apelido).localeCompare(String(b.apelido)));
+
+    if(!box) return;
+
+    if(items.length === 0){
+      box.innerHTML = `<div class="bday-empty">Nenhum aniversariante neste mês.</div>`;
+      return;
+    }
+
+    let html = `<table class="bday-table">
+      <thead><tr><th class="left">Apelido</th><th>Dia</th><th>Idade</th></tr></thead><tbody>`;
+    for(const it of items){
+      html += `<tr>
+        <td class="left">${String(it.apelido||"").toUpperCase()}</td>
+        <td>${pad2(it.dia)}</td>
+        <td>${it.idade}</td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+    box.innerHTML = html;
+  }
+
+  function render(){
+    const tb = $("tbody");
+    tb.innerHTML = "";
+
+    // ordem alfabética por apelido
+    const items = [...cache].sort((a,b)=> String(a.apelido||"").localeCompare(String(b.apelido||"")));
+    $("total").textContent = "TOTAL DE JOGADORES: " + items.length;
+
+    // ORDEM = 1..n (baseado na lista ordenada)
+    let ordem = 0;
+
+    for(const it of items){
+      ordem++;
+
+      const tr = document.createElement("tr");
+
+      function td(text, cls){
+        const d = document.createElement("td");
+        if(cls) d.className = cls;
+        d.textContent = (text===null || text===undefined) ? "" : String(text);
+        return d;
+      }
+
+      tr.appendChild(td(ordem));
+      tr.appendChild(td(it.camisa ?? ""));
+      tr.appendChild(td(it.apelido ?? "", "left"));
+      tr.appendChild(td(it.nome ?? "", "left"));
+      tr.appendChild(td(it.data_nasc ?? ""));
+      tr.appendChild(td(calcIdade(it.data_nasc)));
+      tr.appendChild(td(it.celular ?? ""));
+      tr.appendChild(td(it.posicao ?? ""));
+      tr.appendChild(td(it.habilidade ?? ""));
+      tr.appendChild(td(it.velocidade ?? ""));
+      tr.appendChild(td(it.movimentacao ?? ""));
+      tr.appendChild(td(it.pontos ?? 0));
+
+      // EDITAR
+      const tEdit = document.createElement("td");
+      tEdit.className = "no-print";
+      const bEdit = document.createElement("button");
+      bEdit.className = "btn-mini btn-edit";
+      bEdit.textContent = "EDITAR";
+      bEdit.onclick = ()=> preencherEdicao(it);
+      tEdit.appendChild(bEdit);
+      tr.appendChild(tEdit);
+
+      // EXCLUIR
+      const tDel = document.createElement("td");
+      tDel.className = "no-print";
+      const bDel = document.createElement("button");
+      bDel.className = "btn-mini btn-del";
+      bDel.textContent = "EXCLUIR";
+      bDel.onclick = ()=> excluir(it);
+      tDel.appendChild(bDel);
+      tr.appendChild(tDel);
+
+      tb.appendChild(tr);
+    }
+
+    renderBday();
+  }
+
+  async function carregar(){
+    setMsg("Carregando lista...", "muted");
+    const { r, data } = await apiJson("/api/jogadores");
+    if(!r.ok){
+      setMsg("ERRO ao carregar: " + r.status, "err");
+      return;
+    }
+    cache = Array.isArray(data) ? data : [];
+    render();
+    setMsg("OK: lista carregada", "ok");
+  }
+
+  function limpar(){
+    editId = null;
+    $("btnSalvar").textContent = "Salvar";
+    $("camisa").value = "";
+    $("nome").value = "";
+    $("apelido").value = "";
+    $("celular").value = "";
+    $("posicao").value = "";
+    $("habilidade").value = "";
+    $("velocidade").value = "";
+    $("movimentacao").value = "";
+    $("data_nasc").value = "";
+    $("pontos").value = "0";
+  }
+
+  function preencherEdicao(it){
+    editId = it.id;
+    $("btnSalvar").textContent = "Atualizar";
+    $("camisa").value = (it.camisa ?? "");
+    $("nome").value = (it.nome ?? "");
+    $("apelido").value = (it.apelido ?? "");
+    $("celular").value = (it.celular ?? "");
+    $("posicao").value = (it.posicao ?? "");
+    $("habilidade").value = (it.habilidade ?? "");
+    $("velocidade").value = (it.velocidade ?? "");
+    $("movimentacao").value = (it.movimentacao ?? "");
+    $("data_nasc").value = (it.data_nasc ?? "");
+    $("pontos").value = (it.pontos ?? 0);
+    setMsg("Editando jogador: " + (it.apelido||""), "muted");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function salvar(){
+    const apelido = String($("apelido").value||"").trim();
+    if(!apelido){ setMsg("ERRO: informe o APELIDO", "err"); return; }
+
+    const payload = {
+      id: editId,
+      camisa: toIntOrNull($("camisa").value),
+      nome: valOrNull($("nome").value) || "",
+      apelido,
+      celular: valOrNull($("celular").value),
+      posicao: valOrNull($("posicao").value),
+      habilidade: toIntOrNull($("habilidade").value),
+      velocidade: toIntOrNull($("velocidade").value),
+      movimentacao: toIntOrNull($("movimentacao").value),
+      data_nasc: valOrNull($("data_nasc").value),
+      pontos: toIntOrNull($("pontos").value) ?? 0
+    };
+
+    setMsg(editId ? "Atualizando..." : "Salvando...", "muted");
+
+    if(editId){
+      let { r } = await apiJson("/api/jogadores/" + encodeURIComponent(editId), {
+        method: "PUT",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if(r.status === 404 || r.status === 405){
+        ({ r } = await apiJson("/api/jogadores", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify(payload)
+        }));
+      }
+
+      if(!r.ok){ setMsg("ERRO ao atualizar ("+r.status+")", "err"); return; }
+      setMsg("OK: atualizado", "ok");
+      limpar();
+      await carregar();
+      return;
+    }
+
+    const { r } = await apiJson("/api/jogadores", {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if(!r.ok){ setMsg("ERRO ao salvar ("+r.status+")", "err"); return; }
+    setMsg("OK: salvo", "ok");
+    limpar();
+    await carregar();
+  }
+
+  async function excluir(it){
+    if(!confirm("Excluir jogador: " + (it.apelido||"") + " ?")) return;
+    setMsg("Excluindo...", "muted");
+
+    let { r } = await apiJson("/api/jogadores/" + encodeURIComponent(it.id), { method:"DELETE" });
+
+    if(r.status === 404 || r.status === 405){
+      ({ r } = await apiJson("/api/jogadores?id=" + encodeURIComponent(it.id), { method:"DELETE" }));
+    }
+
+    if(!r.ok){
+      setMsg("ERRO ao excluir: " + r.status, "err");
+      return;
+    }
+    setMsg("OK: excluído", "ok");
+    await carregar();
+  }
+
+  $("btnPdf").addEventListener("click", ()=> window.print());
+  $("btnLimpar").addEventListener("click", limpar);
+  $("btnSalvar").addEventListener("click", salvar);
+
+  carregar().catch(()=> setMsg("ERRO ao carregar lista", "err"));
+</script>
+</body>
+</html>
