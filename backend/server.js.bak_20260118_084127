@@ -1,0 +1,230 @@
+const path = require("path");
+const express = require("express");
+const cors = require("cors");
+const Database = require("better-sqlite3");
+const { saveSnapshot, listSnapshots, loadSnapshot } = require("./modules/_core/archive");
+
+const ALLOWED_PANELS = new Set([
+  "jogadores",
+  "presenca_escalacao",
+  "controle_geral",
+  "mensalidade",
+  "caixa",
+  "gols"
+]);
+
+function mustBeAllowedPanel(panel) {
+  return ALLOWED_PANELS.has(panel);
+}
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: "5mb" }));
+
+// --- DB (SQLite) ---
+const DB_PATH = process.env.TESOURA_DB_PATH || path.join(__dirname, "db", "tesoura.sqlite");
+const db = new Database(DB_PATH);
+
+// helpers
+function tableCols(table) {
+  try {
+    const rows = db.prepare(`PRAGMA table_info(${table})`).all();
+    return new Set(rows.map(r => r.name));
+  } catch {
+    return new Set();
+  }
+}
+const colsJog = () => tableCols("jogadores");
+function pickBirthCol(cols) {
+  if (cols.has("nascimento")) return "nascimento";
+  if (cols.has("data_nasc")) return "data_nasc";
+  if (cols.has("data_nascimento")) return "data_nascimento";
+  return null;
+}
+function pickHabCol(cols) {
+  if (cols.has("hab")) return "hab";
+  if (cols.has("habilidade")) return "habilidade";
+  return null;
+}
+function pickVelCol(cols) {
+  if (cols.has("vel")) return "vel";
+  if (cols.has("velocidade")) return "velocidade";
+  return null;
+}
+function pickMovCol(cols) {
+  if (cols.has("mov")) return "mov";
+  if (cols.has("movimentacao")) return "movimentacao";
+  return null;
+}
+
+function normalizeJogadorRow(r) {
+  const cols = colsJog();
+  const birthCol = pickBirthCol(cols);
+  const habCol = pickHabCol(cols);
+  const velCol = pickVelCol(cols);
+  const movCol = pickMovCol(cols);
+
+  return {
+    ...r,
+    // campos que o FRONT normalmente espera
+    camisa: r.camisa ?? null,
+    apelido: r.apelido ?? "",
+    nome: r.nome ?? "",
+    celular: r.celular ?? "",
+    posicao: r.posicao ?? "",
+    pontos: r.pontos ?? 0,
+    hab: habCol ? (r[habCol] ?? null) : (r.hab ?? r.habilidade ?? null),
+    vel: velCol ? (r[velCol] ?? null) : (r.vel ?? r.velocidade ?? null),
+    mov: movCol ? (r[movCol] ?? null) : (r.mov ?? r.movimentacao ?? null),
+    nascimento: birthCol ? (r[birthCol] ?? "") : (r.nascimento ?? r.data_nasc ?? r.data_nascimento ?? "")
+  };
+}
+
+// --- HEALTH ---
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, service: "tesoura-api", db: DB_PATH });
+});
+
+// --- JOGADORES (GET) ---
+app.get("/api/jogadores", (req, res) => {
+  const rows = db.prepare("SELECT * FROM jogadores ORDER BY apelido COLLATE NOCASE").all();
+  res.json(rows.map(normalizeJogadorRow));
+});
+
+// --- JOGADORES (UPSERT: cria/edita) ---
+app.post("/api/jogadores", (req, res) => {
+  const j = req.body || {};
+  const cols = colsJog();
+
+  // mapa de entrada (aceita nomes usados no front)
+  const birthCol = pickBirthCol(cols);
+  const habCol = pickHabCol(cols);
+  const velCol = pickVelCol(cols);
+  const movCol = pickMovCol(cols);
+
+  const payload = {};
+  if (cols.has("camisa")) payload.camisa = j.camisa ?? null;
+  if (cols.has("apelido")) payload.apelido = (j.apelido ?? "").trim();
+  if (cols.has("nome")) payload.nome = (j.nome ?? "").trim();
+  if (cols.has("celular")) payload.celular = (j.celular ?? "").trim();
+  if (cols.has("posicao")) payload.posicao = (j.posicao ?? "").trim();
+  if (cols.has("pontos")) payload.pontos = Number(j.pontos ?? 0) || 0;
+  if (cols.has("ativo")) payload.ativo = (j.ativo == null ? 1 : Number(j.ativo));
+
+  if (birthCol) payload[birthCol] = (j.nascimento ?? j.data_nasc ?? j.data_nascimento ?? "").trim();
+  if (habCol) payload[habCol] = (j.hab ?? j.habilidade ?? null);
+  if (velCol) payload[velCol] = (j.vel ?? j.velocidade ?? null);
+  if (movCol) payload[movCol] = (j.mov ?? j.movimentacao ?? null);
+
+  try {
+    // se veio id -> UPDATE
+    if (j.id && cols.has("id")) {
+      const sets = Object.keys(payload).map(k => `${k}=@${k}`).join(", ");
+      const stmt = db.prepare(`UPDATE jogadores SET ${sets} WHERE id=@id`);
+      stmt.run({ ...payload, id: j.id });
+      return res.json({ ok: true, id: j.id });
+    }
+
+    // INSERT
+    const keys = Object.keys(payload);
+    const colsSql = keys.join(",");
+    const valsSql = keys.map(k => `@${k}`).join(",");
+    const stmt = db.prepare(`INSERT INTO jogadores (${colsSql}) VALUES (${valsSql})`);
+    const info = stmt.run(payload);
+    res.json({ ok: true, id: info.lastInsertRowid });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// --- ANIVERSARIANTES (CORRIGIDO p/ better-sqlite3) ---
+app.get("/api/aniversariantes", (req, res) => {
+  try {
+    const cols = colsJog();
+    const birthCol = pickBirthCol(cols);
+    if (!birthCol) return res.json([]);
+
+    const now = new Date();
+    const mes = String(req.query.mes || (now.getMonth() + 1)).padStart(2, "0");
+
+    const sql = `
+      SELECT apelido, nome, ${birthCol} AS nascimento
+      FROM jogadores
+      WHERE ${birthCol} IS NOT NULL
+        AND length(${birthCol}) >= 10
+        AND substr(${birthCol},6,2) = ?
+      ORDER BY substr(${birthCol},9,2) ASC, apelido ASC
+    `;
+    const rows = db.prepare(sql).all(mes);
+    res.json(rows || []);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// --- ENDPOINTS DOS OUTROS PAINEIS (GET simples) ---
+app.get("/api/gols", (req, res) => {
+  try {
+    const rows = db.prepare("SELECT * FROM gols ORDER BY id DESC").all();
+    res.json(rows);
+  } catch (e) { res.status(500).json({ ok:false, error:String(e.message||e) }); }
+});
+
+app.get("/api/mensalidades", (req, res) => {
+  try {
+    const rows = db.prepare("SELECT * FROM mensalidades ORDER BY mes DESC, apelido COLLATE NOCASE").all();
+    res.json(rows);
+  } catch (e) { res.status(500).json({ ok:false, error:String(e.message||e) }); }
+});
+
+app.get("/api/caixa", (req, res) => {
+  try {
+    const rows = db.prepare("SELECT * FROM caixa ORDER BY id DESC").all();
+    res.json(rows);
+  } catch (e) { res.status(500).json({ ok:false, error:String(e.message||e) }); }
+});
+
+app.get("/api/presencas", (req, res) => {
+  try {
+    // se existir filtro por data_domingo, usa; se nao, lista tudo
+    const data_domingo = String(req.query.data_domingo || "").trim();
+    if (data_domingo) {
+      const rows = db.prepare("SELECT * FROM presencas WHERE data_domingo=? ORDER BY hora_chegada").all(data_domingo);
+      return res.json(rows);
+    }
+    const rows = db.prepare("SELECT * FROM presencas ORDER BY id DESC").all();
+    res.json(rows);
+  } catch (e) { res.status(500).json({ ok:false, error:String(e.message||e) }); }
+});
+
+// --- HISTÓRICO (por painel) ---
+app.post("/api/:panel/salvar", (req, res) => {
+  const panel = String(req.params.panel || "").trim();
+  if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
+  const payload = req.body || {};
+  const out = saveSnapshot(panel, payload);
+  res.json({ ok: true, ref: out.ref });
+});
+
+app.get("/api/:panel/historico", (req, res) => {
+  const panel = String(req.params.panel || "").trim();
+  if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
+  const items = listSnapshots(panel);
+  res.json({ ok: true, items });
+});
+
+app.get("/api/:panel/carregar", (req, res) => {
+  const panel = String(req.params.panel || "").trim();
+  const ref = String(req.query.ref || "").trim();
+  if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
+  if (!ref) return res.status(400).json({ ok: false, error: "Faltou ref" });
+  const data = loadSnapshot(panel, ref);
+  if (!data) return res.status(404).json({ ok: false, error: "Não encontrado" });
+  res.json({ ok: true, data });
+});
+
+// --- start ---
+const PORT = Number(process.env.PORT || 8080);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`TESOURA API rodando na porta ${PORT}`);
+});

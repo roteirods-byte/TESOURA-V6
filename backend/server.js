@@ -19,148 +19,166 @@ function mustBeAllowedPanel(panel) {
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "5mb" }));
 
-// --- DB (SQLite) ---
-const DB_PATH =
-  process.env.TESOURA_DB_PATH || path.join(__dirname, "db", "tesoura.sqlite");
+// DB
+const DB_PATH = process.env.TESOURA_DB_PATH || path.join(__dirname, "db", "tesoura.sqlite");
 const db = new Database(DB_PATH);
+try { db.pragma("journal_mode = WAL"); } catch {}
 
-// --- cria tabelas mínimas ---
-db.exec(`
-CREATE TABLE IF NOT EXISTS jogadores (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  camisa INTEGER,
-  nome TEXT,
-  apelido TEXT UNIQUE,
-  celular TEXT,
-  posicao TEXT,
-  habilidade INTEGER,
-  velocidade INTEGER,
-  movimentacao INTEGER,
-  data_nasc TEXT,
-  criado_em TEXT DEFAULT (datetime('now')),
-  atualizado_em TEXT DEFAULT (datetime('now'))
-);
+// helpers
+function safeAll(sql, params = []) {
+  return db.prepare(sql).all(params);
+}
+function safeGet(sql, params = []) {
+  return db.prepare(sql).get(params);
+}
+function hasTable(t) {
+  try {
+    const r = safeGet("SELECT name FROM sqlite_master WHERE type='table' AND name=?", [t]);
+    return !!r;
+  } catch {
+    return false;
+  }
+}
+function cols(t) {
+  try {
+    return safeAll(`PRAGMA table_info(${t})`).map(r => r.name);
+  } catch {
+    return [];
+  }
+}
+function hasCol(t, c) {
+  return cols(t).includes(c);
+}
 
-CREATE TABLE IF NOT EXISTS presencas (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  data_domingo TEXT,
-  apelido TEXT,
-  hora_chegada TEXT,
-  saiu INTEGER DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS mensalidades (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  mes TEXT,
-  apelido TEXT,
-  pago INTEGER DEFAULT 0,
-  criado_em TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS caixa (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  data TEXT,
-  tipo TEXT,
-  descricao TEXT,
-  valor REAL,
-  origem TEXT
-);
-
-CREATE TABLE IF NOT EXISTS gols (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  ano TEXT,
-  apelido TEXT,
-  gols INTEGER DEFAULT 0
-);
-`);
-
-// --- HEALTH ---
+// HEALTH
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "tesoura-api", db: DB_PATH });
 });
 
-// --- JOGADORES (contrato fixo) ---
+// =====================
+// JOGADORES (RETORNA SEMPRE O "CONTRATO" ESPERADO PELO FRONT)
+// =====================
+function mapJogador(r) {
+  const nascimento =
+    (r.nascimento ?? r.data_nasc ?? r.data_nascimento ?? r.nasc ?? "") || "";
+  const hab = r.hab ?? r.habilidade ?? null;
+  const vel = r.vel ?? r.velocidade ?? null;
+  const mov = r.mov ?? r.movimentacao ?? null;
+
+  let pontos = r.pontos ?? r.ponto ?? 0;
+  pontos = typeof pontos === "number" ? pontos : (Number(pontos) || 0);
+
+  return {
+    id: r.id ?? null,
+    camisa: r.camisa ?? null,
+    apelido: r.apelido ?? "",
+    nome: r.nome ?? "",
+    celular: r.celular ?? "",
+    posicao: r.posicao ?? "",
+    hab,
+    vel,
+    mov,
+    pontos,
+    nascimento,
+    ativo: r.ativo ?? 1,
+    created_at: r.created_at ?? r.criado_em ?? r.criadoEm ?? null
+  };
+}
+
 app.get("/api/jogadores", (req, res) => {
-  const rows = db
-    .prepare("SELECT * FROM jogadores ORDER BY apelido COLLATE NOCASE")
-    .all();
-  res.json(rows);
+  if (!hasTable("jogadores")) return res.json([]);
+  const rows = safeAll("SELECT * FROM jogadores ORDER BY apelido COLLATE NOCASE");
+  res.json(rows.map(mapJogador));
 });
 
-app.post("/api/jogadores", (req, res) => {
-  const j = req.body || {};
-  const stmt = db.prepare(`
-    INSERT INTO jogadores (camisa,nome,apelido,celular,posicao,habilidade,velocidade,movimentacao,data_nasc,atualizado_em)
-    VALUES (@camisa,@nome,@apelido,@celular,@posicao,@habilidade,@velocidade,@movimentacao,@data_nasc,datetime('now'))
-  `);
-
+// =====================
+// ANIVERSARIANTES (CORRIGE o db.all + FUNCIONA com nascimento OU data_nasc)
+// =====================
+app.get("/api/aniversariantes", (req, res) => {
   try {
-    const info = stmt.run({
-      camisa: j.camisa ?? null,
-      nome: j.nome ?? "",
-      apelido: j.apelido ?? "",
-      celular: j.celular ?? "",
-      posicao: j.posicao ?? "",
-      habilidade: j.habilidade ?? null,
-      velocidade: j.velocidade ?? null,
-      movimentacao: j.movimentacao ?? null,
-      data_nasc: j.data_nasc ?? ""
-    });
-    res.json({ ok: true, id: info.lastInsertRowid });
+    const cols = db.prepare("PRAGMA table_info(jogadores)").all().map(r => r.name);
+    const col = cols.includes("nascimento") ? "nascimento"
+              : cols.includes("data_nasc") ? "data_nasc"
+              : cols.includes("data_nascimento") ? "data_nascimento"
+              : null;
+
+    if (!col) return res.json([]); // DB atual não tem nascimento
+
+    const now = new Date();
+    const mes = String(req.query.mes || (now.getMonth() + 1)).padStart(2, "0");
+
+    const sql = `
+      SELECT apelido, nome, ${col} AS nascimento
+      FROM jogadores
+      WHERE ${col} IS NOT NULL
+        AND length(${col}) >= 10
+        AND substr(${col},6,2) = ?
+      ORDER BY substr(${col},9,2) ASC, apelido ASC
+    `;
+
+    const rows = db.prepare(sql).all(mes);
+    res.json(rows || []);
   } catch (e) {
-    res.status(400).json({ ok: false, error: String(e.message || e) });
+    res.status(500).json({ ok: false, error: String(e.message || e) });
   }
 });
-
-// --- PRESENÇAS (base) ---
-app.get("/api/presencas", (req, res) => {
-  const data_domingo = req.query.data_domingo || "";
-  const rows = db
-    .prepare("SELECT * FROM presencas WHERE data_domingo=? ORDER BY hora_chegada")
-    .all(data_domingo);
+// =====================
+// GOLS / MENSALIDADES / CAIXA (PAROU O 404 DOS PAINEIS)
+// =====================
+app.get("/api/gols", (req, res) => {
+  if (!hasTable("gols")) return res.json([]);
+  const rows = safeAll("SELECT * FROM gols ORDER BY id DESC");
   res.json(rows);
 });
-// --- HISTÓRICO (por painel) ---
-// Salvar snapshot do estado atual (JSON)
+
+app.get("/api/mensalidades", (req, res) => {
+  if (!hasTable("mensalidades")) return res.json([]);
+  const rows = safeAll("SELECT * FROM mensalidades ORDER BY id DESC");
+  res.json(rows);
+});
+
+app.get("/api/caixa", (req, res) => {
+  if (!hasTable("caixa")) return res.json([]);
+  const rows = safeAll("SELECT * FROM caixa ORDER BY id DESC");
+  res.json(rows);
+});
+
+// PRESENCAS (mantem)
+app.get("/api/presencas", (req, res) => {
+  if (!hasTable("presencas")) return res.json([]);
+  const data_domingo = String(req.query.data_domingo || "");
+  const rows = safeAll("SELECT * FROM presencas WHERE data_domingo=? ORDER BY hora_chegada", [data_domingo]);
+  res.json(rows);
+});
+
+// HISTORICO (mantem)
 app.post("/api/:panel/salvar", (req, res) => {
   const panel = String(req.params.panel || "").trim();
-  if (!mustBeAllowedPanel(panel)) {
-    return res.status(400).json({ ok: false, error: "Painel inválido" });
-  }
+  if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
   const payload = req.body || {};
   const out = saveSnapshot(panel, payload);
   res.json({ ok: true, ref: out.ref });
 });
 
-// Listar snapshots anteriores (para o filtro do painel)
 app.get("/api/:panel/historico", (req, res) => {
   const panel = String(req.params.panel || "").trim();
-  if (!mustBeAllowedPanel(panel)) {
-    return res.status(400).json({ ok: false, error: "Painel inválido" });
-  }
+  if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
   const items = listSnapshots(panel);
   res.json({ ok: true, items });
 });
 
-// Carregar snapshot anterior (por ref)
 app.get("/api/:panel/carregar", (req, res) => {
   const panel = String(req.params.panel || "").trim();
   const ref = String(req.query.ref || "").trim();
-  if (!mustBeAllowedPanel(panel)) {
-    return res.status(400).json({ ok: false, error: "Painel inválido" });
-  }
-  if (!ref) {
-    return res.status(400).json({ ok: false, error: "Faltou ref" });
-  }
+  if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
+  if (!ref) return res.status(400).json({ ok: false, error: "Faltou ref" });
   const data = loadSnapshot(panel, ref);
   if (!data) return res.status(404).json({ ok: false, error: "Não encontrado" });
   res.json({ ok: true, data });
 });
 
-// --- start ---
+// start
 const PORT = Number(process.env.PORT || 8080);
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`TESOURA API rodando na porta ${PORT}`);
-});
+app.listen(PORT, "0.0.0.0", () => console.log(`TESOURA API rodando na porta ${PORT}`));

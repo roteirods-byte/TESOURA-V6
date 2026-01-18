@@ -1,0 +1,9 @@
+/* tokens.css (minimo) - evita 404 */
+:root{
+  --bg:#0b1220;
+  --panel:#0f1b2d;
+  --text:#e6eefc;
+  --accent:#ff7a00;
+  --green:#22c55e;
+  --red:#ef4444;
+}
