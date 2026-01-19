@@ -60,11 +60,13 @@ function extractList(obj) {
   if (!obj) return [];
   if (Array.isArray(obj)) return obj;
 
+  // formatos comuns
   if (Array.isArray(obj.lista)) return obj.lista;
   if (Array.isArray(obj.items)) return obj.items;
   if (Array.isArray(obj.data)) return obj.data;
   if (obj.data && Array.isArray(obj.data.lista)) return obj.data.lista;
 
+  // fallback: nenhum formato conhecido
   return [];
 }
 
@@ -84,8 +86,8 @@ function normalizeJogador(x) {
   return {
     id: r.id ?? null,
     camisa: r.camisa ?? null,
-    apelido: String(r.apelido ?? "").trim(),
-    nome: String(r.nome ?? "").trim(),
+    apelido: r.apelido ?? "",
+    nome: r.nome ?? "",
     celular: r.celular ?? "",
     posicao: r.posicao ?? "",
     hab: r.hab ?? r.habilidade ?? null,
@@ -102,12 +104,15 @@ function normalizeJogador(x) {
 function getMonthFromDateStr(s) {
   if (!s || typeof s !== "string") return "";
   const t = s.trim();
+  // YYYY-MM-DD
   const m1 = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m1) return m1[2];
+  // DD/MM/YYYY
   const m2 = t.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
   if (m2) return m2[2];
   return "";
 }
+
 function getDayFromDateStr(s) {
   if (!s || typeof s !== "string") return "";
   const t = s.trim();
@@ -118,138 +123,149 @@ function getDayFromDateStr(s) {
   return "";
 }
 
-// ---- JOGADORES via SNAPSHOT (resolve erro 500) ----
-function loadJogadoresRaw() {
-  const snap = getLatestSnapshot("jogadores");
-  const list = extractList(snap);
-  return Array.isArray(list) ? list : [];
-}
-
-function ensureIds(listNorm) {
-  let maxId = 0;
-  for (const it of listNorm) {
-    const idNum = Number(it.id);
-    if (Number.isFinite(idNum) && idNum > maxId) maxId = idNum;
-  }
-  for (const it of listNorm) {
-    if (it.id === null || it.id === undefined || it.id === "") {
-      maxId += 1;
-      it.id = maxId;
-    }
-  }
-  return listNorm;
-}
-
-function loadJogadoresNormalized() {
-  const list = loadJogadoresRaw().map(normalizeJogador);
-  return ensureIds(list);
-}
-
-function saveJogadores(listNorm, createdBy = "system") {
-  // salva como snapshot (formato padrão)
-  return saveSnapshot("jogadores", { lista: listNorm, meta: { created_by: createdBy } });
-}
-
 // --- HEALTH ---
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "tesoura-api", db: DB_PATH });
 });
 
-// --- JOGADORES (GET) ---
+// --- JOGADORES: PRIORIDADE = snapshot files, fallback = tabela jogadores ---
 app.get("/api/jogadores", (req, res) => {
   try {
-    const list = loadJogadoresNormalized();
-    res.json(list);
+    const snap = getLatestSnapshot("jogadores");
+    const list = extractList(snap);
+
+    if (list.length > 0) {
+      return res.json(list.map(normalizeJogador));
+    }
+
+    // fallback antigo
+    if (tableExists("jogadores")) {
+      const rows = db.prepare("SELECT * FROM jogadores ORDER BY apelido COLLATE NOCASE").all();
+      return res.json(rows.map(normalizeJogador));
+    }
+
+    return res.json([]);
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
   }
 });
+
+// --- JOGADORES CRUD (para bater com o frontend) ---
+db.exec(`
+CREATE TABLE IF NOT EXISTS jogadores (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  camisa TEXT,
+  apelido TEXT,
+  nome TEXT,
+  celular TEXT,
+  posicao TEXT,
+  hab INTEGER,
+  vel INTEGER,
+  mov INTEGER,
+  pontos INTEGER DEFAULT 0,
+  nascimento TEXT,
+  ativo INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT
+);
+`);
+
+function normBodyJogador(b) {
+  const x = b || {};
+  return {
+    camisa: (x.camisa ?? null),
+    apelido: String(x.apelido || "").trim(),
+    nome: String(x.nome || "").trim(),
+    celular: String(x.celular || "").trim(),
+    posicao: String(x.posicao || "").trim(),
+    hab: (x.hab ?? x.habilidade ?? null),
+    vel: (x.vel ?? x.velocidade ?? null),
+    mov: (x.mov ?? x.movimentacao ?? null),
+    pontos: Number.isFinite(+x.pontos) ? +x.pontos : 0,
+    nascimento: String(x.nascimento || x.data_nasc || x.data_nascimento || "").trim(),
+    ativo: (x.ativo === 0 || x.ativo === false) ? 0 : 1,
+  };
+}
+
+function apelidoConflita(apelido, ignoreId) {
+  if (!apelido) return false;
+  const row = db.prepare(
+    "SELECT id FROM jogadores WHERE LOWER(apelido)=LOWER(?) AND id<>? LIMIT 1"
+  ).get(apelido, Number(ignoreId || 0));
+  return !!row;
+}
 
 app.get("/api/jogadores/:id", (req, res) => {
   try {
-    const id = Number(req.params.id);
-    const list = loadJogadoresNormalized();
-    const it = list.find(x => Number(x.id) === id);
-    if (!it) return res.status(404).json({ ok: false, error: "Não encontrado" });
-    res.json(it);
+    const id = Number(req.params.id || 0);
+    const row = db.prepare("SELECT * FROM jogadores WHERE id=?").get(id);
+    if (!row) return res.status(404).json({ ok:false, error:"Não encontrado" });
+    res.json(normalizeJogador(row));
   } catch (e) {
-    res.status(500).json({ ok: false, error: String(e.message || e) });
+    res.status(500).json({ ok:false, error:String(e.message || e) });
   }
 });
 
-// --- JOGADORES (POST/PUT/DELETE) ---
 app.post("/api/jogadores", (req, res) => {
   try {
-    const j = normalizeJogador(req.body || {});
-    if (!j.apelido) return res.status(400).json({ ok: false, error: "Faltou apelido" });
+    const j = normBodyJogador(req.body);
+    if (!j.apelido) return res.status(400).json({ ok:false, error:"Faltou apelido" });
+    if (apelidoConflita(j.apelido, 0)) return res.status(409).json({ ok:false, error:"Apelido já existe" });
 
-    const list = loadJogadoresNormalized();
-
-    const exists = list.some(x => String(x.apelido).toLowerCase() === String(j.apelido).toLowerCase());
-    if (exists) return res.status(400).json({ ok: false, error: "Apelido já existe" });
-
-    // id novo
-    let maxId = 0;
-    for (const it of list) maxId = Math.max(maxId, Number(it.id) || 0);
-    j.id = maxId + 1;
-
-    list.push(j);
-    const out = saveJogadores(list, "ui");
-    res.json({ ok: true, id: j.id, ref: out.ref });
+    const st = db.prepare(`
+      INSERT INTO jogadores (camisa, apelido, nome, celular, posicao, hab, vel, mov, pontos, nascimento, ativo)
+      VALUES (@camisa, @apelido, @nome, @celular, @posicao, @hab, @vel, @mov, @pontos, @nascimento, @ativo)
+    `);
+    const out = st.run(j);
+    res.json({ ok:true, id: out.lastInsertRowid });
   } catch (e) {
-    res.status(500).json({ ok: false, error: String(e.message || e) });
+    res.status(500).json({ ok:false, error:String(e.message || e) });
   }
 });
 
 app.put("/api/jogadores/:id", (req, res) => {
   try {
-    const id = Number(req.params.id);
-    const patch = normalizeJogador(req.body || {});
-    const list = loadJogadoresNormalized();
-    const idx = list.findIndex(x => Number(x.id) === id);
-    if (idx < 0) return res.status(404).json({ ok: false, error: "Não encontrado" });
+    const id = Number(req.params.id || 0);
+    const exists = db.prepare("SELECT id FROM jogadores WHERE id=?").get(id);
+    if (!exists) return res.status(404).json({ ok:false, error:"Não encontrado" });
 
-    // se mudar apelido, valida duplicidade
-    if (patch.apelido) {
-      const dup = list.some((x, i) =>
-        i !== idx && String(x.apelido).toLowerCase() === String(patch.apelido).toLowerCase()
-      );
-      if (dup) return res.status(400).json({ ok: false, error: "Apelido já existe" });
-    }
+    const j = normBodyJogador(req.body);
+    if (!j.apelido) return res.status(400).json({ ok:false, error:"Faltou apelido" });
+    if (apelidoConflita(j.apelido, id)) return res.status(409).json({ ok:false, error:"Apelido já existe" });
 
-    list[idx] = { ...list[idx], ...patch, id };
-    const out = saveJogadores(list, "ui");
-    res.json({ ok: true, ref: out.ref });
+    db.prepare(`
+      UPDATE jogadores SET
+        camisa=@camisa, apelido=@apelido, nome=@nome, celular=@celular, posicao=@posicao,
+        hab=@hab, vel=@vel, mov=@mov, pontos=@pontos, nascimento=@nascimento, ativo=@ativo,
+        updated_at=datetime('now')
+      WHERE id=@id
+    `).run({ ...j, id });
+
+    res.json({ ok:true });
   } catch (e) {
-    res.status(500).json({ ok: false, error: String(e.message || e) });
+    res.status(500).json({ ok:false, error:String(e.message || e) });
   }
 });
 
-// compat: DELETE /api/jogadores/:id  (ou ?id=)
 app.delete("/api/jogadores/:id", (req, res) => {
   try {
-    const id = Number(req.params.id);
-    const list = loadJogadoresNormalized();
-    const next = list.filter(x => Number(x.id) !== id);
-    if (next.length === list.length) return res.status(404).json({ ok: false, error: "Não encontrado" });
-    const out = saveJogadores(next, "ui");
-    res.json({ ok: true, ref: out.ref });
+    const id = Number(req.params.id || 0);
+    db.prepare("DELETE FROM jogadores WHERE id=?").run(id);
+    res.json({ ok:true });
   } catch (e) {
-    res.status(500).json({ ok: false, error: String(e.message || e) });
+    res.status(500).json({ ok:false, error:String(e.message || e) });
   }
 });
 
+// fallback do frontend: DELETE /api/jogadores?id=123
 app.delete("/api/jogadores", (req, res) => {
   try {
-    const id = Number(req.query.id);
-    if (!Number.isFinite(id)) return res.status(400).json({ ok: false, error: "Faltou id" });
-    const list = loadJogadoresNormalized();
-    const next = list.filter(x => Number(x.id) !== id);
-    if (next.length === list.length) return res.status(404).json({ ok: false, error: "Não encontrado" });
-    const out = saveJogadores(next, "ui");
-    res.json({ ok: true, ref: out.ref });
+    const id = Number(req.query.id || 0);
+    if (!id) return res.status(400).json({ ok:false, error:"Faltou id" });
+    db.prepare("DELETE FROM jogadores WHERE id=?").run(id);
+    res.json({ ok:true });
   } catch (e) {
-    res.status(500).json({ ok: false, error: String(e.message || e) });
+    res.status(500).json({ ok:false, error:String(e.message || e) });
   }
 });
 
@@ -259,7 +275,12 @@ app.get("/api/aniversariantes", (req, res) => {
     const now = new Date();
     const mes = String(req.query.mes || (now.getMonth() + 1)).padStart(2, "0");
 
-    const jogadores = loadJogadoresNormalized();
+    // pega jogadores do snapshot (ou fallback)
+    const snap = getLatestSnapshot("jogadores");
+    const list = extractList(snap);
+    const jogadores = (list.length > 0)
+      ? list.map(normalizeJogador)
+      : (tableExists("jogadores") ? db.prepare("SELECT * FROM jogadores").all().map(normalizeJogador) : []);
 
     const out = jogadores
       .filter(j => getMonthFromDateStr(j.nascimento) === mes)
