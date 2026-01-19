@@ -10,11 +10,33 @@ const ALLOWED_PANELS = new Set([
   "controle_geral",
   "mensalidade",
   "caixa",
-  "gols"
+  "gols",
 ]);
 
 function mustBeAllowedPanel(panel) {
   return ALLOWED_PANELS.has(panel);
+}
+
+function toIntOrNull(v) {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(String(v).replace(/[^\d-]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+function toIntOrZero(v) {
+  const n = toIntOrNull(v);
+  return n === null ? 0 : n;
+}
+
+function str(v) {
+  return (v === null || v === undefined) ? "" : String(v);
+}
+
+function pick(obj, keys) {
+  for (const k of keys) {
+    if (obj && obj[k] !== undefined && obj[k] !== null) return obj[k];
+  }
+  return undefined;
 }
 
 const app = express();
@@ -22,25 +44,25 @@ app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
 // --- DB (SQLite) ---
-const DB_PATH =
-  process.env.TESOURA_DB_PATH || path.join(__dirname, "db", "tesoura.sqlite");
+const DB_PATH = process.env.TESOURA_DB_PATH || path.join(__dirname, "db", "tesoura.sqlite");
 const db = new Database(DB_PATH);
 
-// --- cria tabelas mínimas ---
+// --- ESQUEMA CANÔNICO (NÃO DESTRÓI DADOS) ---
 db.exec(`
 CREATE TABLE IF NOT EXISTS jogadores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  apelido TEXT UNIQUE NOT NULL,
+  nome TEXT DEFAULT "",
+  ativo INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
   camisa INTEGER,
-  nome TEXT,
-  apelido TEXT UNIQUE,
-  celular TEXT,
-  posicao TEXT,
-  habilidade INTEGER,
-  velocidade INTEGER,
-  movimentacao INTEGER,
-  data_nasc TEXT,
-  criado_em TEXT DEFAULT (datetime('now')),
-  atualizado_em TEXT DEFAULT (datetime('now'))
+  celular TEXT DEFAULT '',
+  posicao TEXT DEFAULT '',
+  hab INTEGER,
+  vel INTEGER,
+  mov INTEGER,
+  pontos INTEGER DEFAULT 0,
+  nascimento TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS presencas (
@@ -81,34 +103,71 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "tesoura-api", db: DB_PATH });
 });
 
-// --- JOGADORES (contrato fixo) ---
+// --- JOGADORES (CONTRATO FIXO + COMPAT) ---
 app.get("/api/jogadores", (req, res) => {
-  const rows = db
-    .prepare("SELECT * FROM jogadores ORDER BY apelido COLLATE NOCASE")
-    .all();
+  const rows = db.prepare("SELECT * FROM jogadores ORDER BY apelido COLLATE NOCASE").all();
   res.json(rows);
 });
 
+// Salvar (cria ou atualiza por apelido)
 app.post("/api/jogadores", (req, res) => {
-  const j = req.body || {};
-  const stmt = db.prepare(`
-    INSERT INTO jogadores (camisa,nome,apelido,celular,posicao,habilidade,velocidade,movimentacao,data_nasc,atualizado_em)
-    VALUES (@camisa,@nome,@apelido,@celular,@posicao,@habilidade,@velocidade,@movimentacao,@data_nasc,datetime('now'))
-  `);
-
   try {
-    const info = stmt.run({
-      camisa: j.camisa ?? null,
-      nome: j.nome ?? "",
-      apelido: j.apelido ?? "",
-      celular: j.celular ?? "",
-      posicao: j.posicao ?? "",
-      habilidade: j.habilidade ?? null,
-      velocidade: j.velocidade ?? null,
-      movimentacao: j.movimentacao ?? null,
-      data_nasc: j.data_nasc ?? ""
-    });
-    res.json({ ok: true, id: info.lastInsertRowid });
+    const j = req.body || {};
+
+    const apelido = str(j.apelido).trim();
+    if (!apelido) return res.status(400).json({ ok: false, error: "Faltou apelido" });
+
+    // Compat: aceita nomes antigos e do front
+    const nome = str(pick(j, ["nome"])).trim();
+    const camisa = toIntOrNull(pick(j, ["camisa"]));
+    const celular = str(pick(j, ["celular"])).trim();
+    const posicao = str(pick(j, ["posicao"])).trim();
+
+    const hab = toIntOrNull(pick(j, ["hab", "habilidade"]));
+    const vel = toIntOrNull(pick(j, ["vel", "velocidade"]));
+    const mov = toIntOrNull(pick(j, ["mov", "movimentacao"]));
+    const pontos = toIntOrZero(pick(j, ["pontos", "ponto"]));
+
+    const nascimento = str(pick(j, ["nascimento", "data_nasc", "nasc"])).trim();
+
+    const exists = db.prepare("SELECT id FROM jogadores WHERE apelido=?").get(apelido);
+
+    if (exists) {
+      db.prepare(`
+        UPDATE jogadores
+           SET camisa=@camisa,
+               nome=@nome,
+               celular=@celular,
+               posicao=@posicao,
+               hab=@hab,
+               vel=@vel,
+               mov=@mov,
+               pontos=@pontos,
+               nascimento=@nascimento
+         WHERE apelido=@apelido
+      `).run({ apelido, camisa, nome, celular, posicao, hab, vel, mov, pontos, nascimento });
+
+      return res.json({ ok: true, mode: "update", apelido });
+    }
+
+    const info = db.prepare(`
+      INSERT INTO jogadores (apelido,nome,camisa,celular,posicao,hab,vel,mov,pontos,nascimento,ativo,created_at)
+      VALUES (@apelido,@nome,@camisa,@celular,@posicao,@hab,@vel,@mov,@pontos,@nascimento,1,strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+    `).run({ apelido, nome, camisa, celular, posicao, hab, vel, mov, pontos, nascimento });
+
+    return res.json({ ok: true, mode: "insert", id: info.lastInsertRowid, apelido });
+  } catch (e) {
+    return res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// Excluir por apelido (se o painel usar)
+app.delete("/api/jogadores/:apelido", (req, res) => {
+  try {
+    const apelido = str(req.params.apelido).trim();
+    if (!apelido) return res.status(400).json({ ok: false, error: "Faltou apelido" });
+    const info = db.prepare("DELETE FROM jogadores WHERE apelido=?").run(apelido);
+    res.json({ ok: true, deleted: info.changes });
   } catch (e) {
     res.status(400).json({ ok: false, error: String(e.message || e) });
   }
@@ -117,43 +176,31 @@ app.post("/api/jogadores", (req, res) => {
 // --- PRESENÇAS (base) ---
 app.get("/api/presencas", (req, res) => {
   const data_domingo = req.query.data_domingo || "";
-  const rows = db
-    .prepare("SELECT * FROM presencas WHERE data_domingo=? ORDER BY hora_chegada")
-    .all(data_domingo);
+  const rows = db.prepare("SELECT * FROM presencas WHERE data_domingo=? ORDER BY hora_chegada").all(data_domingo);
   res.json(rows);
 });
+
 // --- HISTÓRICO (por painel) ---
-// Salvar snapshot do estado atual (JSON)
 app.post("/api/:panel/salvar", (req, res) => {
   const panel = String(req.params.panel || "").trim();
-  if (!mustBeAllowedPanel(panel)) {
-    return res.status(400).json({ ok: false, error: "Painel inválido" });
-  }
+  if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
   const payload = req.body || {};
   const out = saveSnapshot(panel, payload);
   res.json({ ok: true, ref: out.ref });
 });
 
-// Listar snapshots anteriores (para o filtro do painel)
 app.get("/api/:panel/historico", (req, res) => {
   const panel = String(req.params.panel || "").trim();
-  if (!mustBeAllowedPanel(panel)) {
-    return res.status(400).json({ ok: false, error: "Painel inválido" });
-  }
+  if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
   const items = listSnapshots(panel);
   res.json({ ok: true, items });
 });
 
-// Carregar snapshot anterior (por ref)
 app.get("/api/:panel/carregar", (req, res) => {
   const panel = String(req.params.panel || "").trim();
   const ref = String(req.query.ref || "").trim();
-  if (!mustBeAllowedPanel(panel)) {
-    return res.status(400).json({ ok: false, error: "Painel inválido" });
-  }
-  if (!ref) {
-    return res.status(400).json({ ok: false, error: "Faltou ref" });
-  }
+  if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
+  if (!ref) return res.status(400).json({ ok: false, error: "Faltou ref" });
   const data = loadSnapshot(panel, ref);
   if (!data) return res.status(404).json({ ok: false, error: "Não encontrado" });
   res.json({ ok: true, data });
