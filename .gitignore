@@ -1,0 +1,14 @@
+# --- runtime / servidor (NAO versionar) ---
+backend/node_modules/
+backend/db/*.sqlite
+backend/db/*.sqlite-*
+backend/db/*.db
+backend/db/*.db-*
+backend/db/*-wal
+backend/db/*-shm
+backend/db/*.BKP_*
+frontend/panels/*.BKP_*
+backend/*.BKP_*
+backend/archive/
+*.log
+*.tmp
