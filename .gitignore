@@ -12,3 +12,6 @@ backend/*.BKP_*
 backend/archive/
 *.log
 *.tmp
+_backups_frontend/
+backend/*.save
+backend/.server.js.swp
