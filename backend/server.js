@@ -29,7 +29,7 @@ function toIntOrZero(v) {
 }
 
 function str(v) {
-  return (v === null || v === undefined) ? "" : String(v);
+  return v === null || v === undefined ? "" : String(v);
 }
 
 function pick(obj, keys) {
@@ -43,11 +43,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
-// --- DB (SQLite) ---
 const DB_PATH = process.env.TESOURA_DB_PATH || path.join(__dirname, "db", "tesoura.sqlite");
 const db = new Database(DB_PATH);
 
-// --- ESQUEMA CANÔNICO (NÃO DESTRÓI DADOS) ---
 db.exec(`
 CREATE TABLE IF NOT EXISTS jogadores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,26 +96,21 @@ CREATE TABLE IF NOT EXISTS gols (
 );
 `);
 
-// --- HEALTH ---
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "tesoura-api", db: DB_PATH });
 });
 
-// --- JOGADORES (CONTRATO FIXO + COMPAT) ---
 app.get("/api/jogadores", (req, res) => {
   const rows = db.prepare("SELECT * FROM jogadores ORDER BY apelido COLLATE NOCASE").all();
   res.json(rows);
 });
 
-// Salvar (cria ou atualiza por apelido)
 app.post("/api/jogadores", (req, res) => {
   try {
     const j = req.body || {};
-
     const apelido = str(j.apelido).trim();
     if (!apelido) return res.status(400).json({ ok: false, error: "Faltou apelido" });
 
-    // Compat: aceita nomes antigos e do front
     const nome = str(pick(j, ["nome"])).trim();
     const camisa = toIntOrNull(pick(j, ["camisa"]));
     const celular = str(pick(j, ["celular"])).trim();
@@ -161,7 +154,6 @@ app.post("/api/jogadores", (req, res) => {
   }
 });
 
-// Excluir por apelido (se o painel usar)
 app.delete("/api/jogadores/:apelido", (req, res) => {
   try {
     const apelido = str(req.params.apelido).trim();
@@ -173,14 +165,12 @@ app.delete("/api/jogadores/:apelido", (req, res) => {
   }
 });
 
-// --- PRESENÇAS (base) ---
 app.get("/api/presencas", (req, res) => {
   const data_domingo = req.query.data_domingo || "";
   const rows = db.prepare("SELECT * FROM presencas WHERE data_domingo=? ORDER BY hora_chegada").all(data_domingo);
   res.json(rows);
 });
 
-// --- HISTÓRICO (por painel) ---
 app.post("/api/:panel/salvar", (req, res) => {
   const panel = String(req.params.panel || "").trim();
   if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
@@ -206,7 +196,6 @@ app.get("/api/:panel/carregar", (req, res) => {
   res.json({ ok: true, data });
 });
 
-// --- start ---
 const PORT = Number(process.env.PORT || 8080);
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`TESOURA API rodando na porta ${PORT}`);
