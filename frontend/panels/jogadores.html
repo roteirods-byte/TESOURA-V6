@@ -244,7 +244,156 @@
       table.main, .table-wrap{ max-height:none !important; overflow: visible !important; }
       *{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
     }
-  </style>
+  
+/* PATCH_JOGADORES_PRINT_v1 */
+html, body { overflow-x: hidden !important; }
+
+/* tenta eliminar a barra horizontal sem cortar tudo */
+table { width: 100% !important; table-layout: fixed !important; }
+th, td { padding: 6px 8px !important; font-size: 12px !important; }
+th { white-space: nowrap !important; }
+
+/* coluna NOME costuma estourar: permite quebrar linha */
+td:nth-child(4), th:nth-child(4) { white-space: normal !important; }
+
+/* ações menores (EDITAR/EXCLUIR) */
+th:nth-child(13), td:nth-child(13),
+th:nth-child(14), td:nth-child(14) { width: 84px !important; }
+
+/* ===== PDF/PRINT legível ===== */
+@media print{
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  html, body { background: #fff !important; color: #000 !important; }
+
+  /* não imprimir campos e botões */
+  input, button { display: none !important; }
+
+  /* deixa tudo claro no PDF */
+  .card, .box, .panel, .container, .wrap, .content {
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  table { font-size: 11px !important; }
+  th { background: #eee !important; color: #000 !important; }
+  td, th { border: 1px solid #333 !important; }
+}
+
+
+/* ===== FIXES (PDF + SEM BARRA HORIZONTAL) ===== */
+html, body{ overflow-x:hidden !important; }
+*, *:before, *:after{ box-sizing:border-box; }
+
+/* força tabelas caberem na tela */
+table{ width:100% !important; max-width:100% !important; table-layout:fixed; }
+th, td{ padding:6px 6px !important; font-size:12px !important; }
+td{ word-break:break-word; }
+
+/* mata qualquer wrapper que esteja criando scroll horizontal */
+[class*="table"], [class*="tabela"], [class*="grid"], [class*="lista"], [class*="wrap"]{
+  max-width:100% !important;
+}
+
+/* modo PDF */
+.pdf-mode, .pdf-mode body{ background:#fff !important; }
+.pdf-mode *{ color:#000 !important; background:transparent !important; }
+.pdf-mode table{ border-collapse:collapse !important; }
+.pdf-mode th, .pdf-mode td{ border:1px solid #444 !important; }
+
+@media print{
+  @page{ size: A4 landscape; margin: 10mm; }
+  html, body{ background:#fff !important; }
+  *{ color:#000 !important; background:transparent !important; }
+  table{ table-layout:fixed !important; width:100% !important; }
+}
+
+
+html, body{ overflow-x:hidden !important; }
+*{ box-sizing:border-box; }
+div{ overflow-x:hidden !important; }
+
+table{ width:100% !important; max-width:100% !important; table-layout:fixed !important; }
+th, td{
+  white-space:normal !important;
+  word-break:break-word !important;
+  overflow-wrap:anywhere !important;
+  padding:5px 6px !important;
+  font-size:12px !important;
+}
+.tbl-main th, .tbl-main td{ font-size:11px !important; padding:4px 5px !important; }
+
+.tbl-main th:nth-child(1), .tbl-main td:nth-child(1){ width:52px !important; }  /* ORDEM */
+.tbl-main th:nth-child(2), .tbl-main td:nth-child(2){ width:58px !important; }  /* CAMISA */
+.tbl-main th:nth-child(3), .tbl-main td:nth-child(3){ width:95px !important; }  /* APELIDO */
+.tbl-main th:nth-child(4), .tbl-main td:nth-child(4){ width:170px !important; } /* NOME */
+.tbl-main th:nth-child(5), .tbl-main td:nth-child(5){ width:92px !important; }  /* DATA */
+.tbl-main th:nth-child(6), .tbl-main td:nth-child(6){ width:55px !important; }  /* IDADE */
+.tbl-main th:nth-child(7), .tbl-main td:nth-child(7){ width:120px !important; } /* CELULAR */
+.tbl-main th:nth-child(8), .tbl-main td:nth-child(8){ width:55px !important; }  /* POS */
+.tbl-main th:nth-child(9), .tbl-main td:nth-child(9){ width:45px !important; }  /* HAB */
+.tbl-main th:nth-child(10), .tbl-main td:nth-child(10){ width:45px !important; }/* VEL */
+.tbl-main th:nth-child(11), .tbl-main td:nth-child(11){ width:45px !important; }/* MOV */
+.tbl-main th:nth-child(12), .tbl-main td:nth-child(12){ width:60px !important; }/* PONTOS */
+.tbl-main th:nth-child(13), .tbl-main td:nth-child(13){ width:70px !important; }/* EDITAR */
+.tbl-main th:nth-child(14), .tbl-main td:nth-child(14){ width:70px !important; }/* EXCLUIR */
+
+@media print{
+  @page{ size:A4 landscape; margin:10mm; }
+  html, body{ background:#fff !important; }
+}
+
+
+/* ===== R3 FIX: AUMENTAR ÁREA VISÍVEL + SEM BARRA HORIZONTAL (SEM CORTAR) ===== */
+:root{ --panelW: 1400px; }
+
+/* NÃO cortar o painel */
+html, body{ overflow-x: auto !important; }
+
+/* aumentar a “caixa” principal do painel */
+.container, .wrap, .page, .card, .panel, main{
+  width: min(var(--panelW), 98vw) !important;
+  max-width: min(var(--panelW), 98vw) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* tabela principal caber na tela (sem barra horizontal) */
+table{ width:100% !important; max-width:100% !important; table-layout:fixed !important; }
+th, td{
+  white-space:normal !important;
+  word-break:break-word !important;
+  overflow-wrap:anywhere !important;
+  padding:4px 5px !important;
+  font-size:11px !important;
+}
+
+/* aplica só na tabela da lista (ORD...) */
+.tbl-main th, .tbl-main td{ font-size:10.5px !important; padding:3px 4px !important; }
+
+/* larguras para caber “ORDEM → EXCLUIR” */
+.tbl-main th:nth-child(1),  .tbl-main td:nth-child(1){  width:52px !important; }  /* ORDEM */
+.tbl-main th:nth-child(2),  .tbl-main td:nth-child(2){  width:58px !important; }  /* CAMISA */
+.tbl-main th:nth-child(3),  .tbl-main td:nth-child(3){  width:95px !important; }  /* APELIDO */
+.tbl-main th:nth-child(4),  .tbl-main td:nth-child(4){  width:170px !important; } /* NOME */
+.tbl-main th:nth-child(5),  .tbl-main td:nth-child(5){  width:92px !important; }  /* DATA */
+.tbl-main th:nth-child(6),  .tbl-main td:nth-child(6){  width:55px !important; }  /* IDADE */
+.tbl-main th:nth-child(7),  .tbl-main td:nth-child(7){  width:120px !important; } /* CELULAR */
+.tbl-main th:nth-child(8),  .tbl-main td:nth-child(8){  width:55px !important; }  /* POS */
+.tbl-main th:nth-child(9),  .tbl-main td:nth-child(9){  width:45px !important; }  /* HAB */
+.tbl-main th:nth-child(10), .tbl-main td:nth-child(10){ width:45px !important; }  /* VEL */
+.tbl-main th:nth-child(11), .tbl-main td:nth-child(11){ width:45px !important; }  /* MOV */
+.tbl-main th:nth-child(12), .tbl-main td:nth-child(12){ width:60px !important; }  /* PONTOS */
+.tbl-main th:nth-child(13), .tbl-main td:nth-child(13){ width:70px !important; }  /* EDITAR */
+.tbl-main th:nth-child(14), .tbl-main td:nth-child(14){ width:70px !important; }  /* EXCLUIR */
+
+@media print{
+  @page{ size:A4 landscape; margin:10mm; }
+  html, body{ background:#fff !important; }
+}
+
+</style>
+  <script src="./html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
@@ -693,7 +842,7 @@
       document.getElementById("pontos").value = "0";
       setStatusOk("OK: limpo");
     });
-    document.getElementById("btnPdf").addEventListener("click", ()=> window.print());
+    document.getElementById("btnPdf").addEventListener("click", ()=>baixarPdf());
 
     // força POSIÇÃO 1 letra maiúscula
     document.getElementById("posicao").addEventListener("input", (e)=>{
@@ -708,6 +857,167 @@
         setStatusErr(String(e.message||e));
       }
     })();
-  </script>
+  
+// ===== PDF (gera arquivo e baixa) =====
+function _loadScriptOnce(id, src){
+  return new Promise((resolve, reject)=>{
+    if(document.getElementById(id)) return resolve();
+    const s = document.createElement("script");
+    s.id = id;
+    s.src = src;
+    s.async = true;
+    s.onload = ()=>resolve();
+    s.onerror = ()=>reject(new Error("Falha ao carregar: "+src));
+    document.head.appendChild(s);
+  });
+}
+
+async function baixarPdf(){
+  const root =
+    document.querySelector("#printArea") ||
+    document.querySelector(".container") ||
+    document.querySelector(".wrap") ||
+    document.querySelector("main") ||
+    document.body;
+
+  document.body.classList.add("pdf-mode");
+  try{
+    await _loadScriptOnce(
+      "html2pdf-lib",
+      "https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"
+    );
+
+    const now = new Date();
+    const pad = (n)=>String(n).padStart(2,"0");
+    const file = `TESOURA-JOGADORES-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.pdf`;
+
+    const opt = {
+      margin: [8,8,8,8],
+      filename: file,
+      image: { type: "jpeg", quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
+    };
+
+    await html2pdf().set(opt).from(root).save();
+  }catch(e){
+    console.error(e);
+    alert("Não consegui gerar o PDF automático. Vou abrir o modo Imprimir.");
+    window.print();
+  }finally{
+    document.body.classList.remove("pdf-mode");
+  }
+}
+
+
+// ===== R2 PDF (BAIXA ARQUIVO) + TABELA PRINCIPAL (sem barra horizontal) =====
+function marcarTabelaPrincipal(){
+  try{
+    const tables = Array.from(document.querySelectorAll("table"));
+    for(const t of tables){
+      const th = t.querySelector("thead th");
+      const first = (th ? th.textContent : "").toUpperCase();
+      if(first.includes("ORD")){ t.classList.add("tbl-main"); break; }
+    }
+  }catch(e){}
+}
+
+async function baixarPdf(){
+  try{
+    if(typeof html2pdf === "undefined"){
+      alert("PDF: biblioteca não carregou. Atualize com Ctrl+F5 e tente de novo.");
+      return;
+    }
+
+    // tenta pegar o container principal do painel
+    const root =
+      document.querySelector("#printArea") ||
+      document.querySelector(".container") ||
+      document.querySelector(".wrap") ||
+      document.querySelector("main") ||
+      document.body;
+
+    const now = new Date();
+    const pad = (n)=>String(n).padStart(2,"0");
+    const file = `TESOURA-JOGADORES-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.pdf`;
+
+    const opt = {
+      margin: [8,8,8,8],
+      filename: file,
+      image: { type: "jpeg", quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
+    };
+
+    await html2pdf().set(opt).from(root).save(); // <-- ISTO BAIXA O ARQUIVO
+  }catch(e){
+    console.error(e);
+    alert("Falha ao baixar PDF. Veja o console.");
+  }
+}
+
+// observa mudanças e marca a tabela quando ela aparecer/recarregar
+try{
+  const obs = new MutationObserver(()=>marcarTabelaPrincipal());
+  obs.observe(document.body, { childList:true, subtree:true });
+  setTimeout(marcarTabelaPrincipal, 500);
+}catch(e){}
+
+
+// ===== R3: marcar tabela principal (ORD...) como .tbl-main =====
+function marcarTabelaPrincipal(){
+  try{
+    const tables = Array.from(document.querySelectorAll("table"));
+    for(const t of tables){
+      const th = t.querySelector("thead th");
+      const first = (th ? th.textContent : "").toUpperCase();
+      if(first.includes("ORD")){
+        t.classList.add("tbl-main");
+        break;
+      }
+    }
+  }catch(e){}
+}
+try{
+  const obs = new MutationObserver(()=>marcarTabelaPrincipal());
+  obs.observe(document.body, { childList:true, subtree:true });
+  setTimeout(marcarTabelaPrincipal, 300);
+}catch(e){}
+
+
+// ===== R3 PDF: BAIXAR ARQUIVO (sem print) =====
+async function baixarPdf(){
+  try{
+    if(typeof html2pdf === "undefined"){
+      alert("PDF: biblioteca não carregou. Faça Ctrl+F5 e tente de novo.");
+      return;
+    }
+    const root =
+      document.querySelector("#printArea") ||
+      document.querySelector(".container") ||
+      document.querySelector(".wrap") ||
+      document.querySelector("main") ||
+      document.body;
+
+    const now = new Date();
+    const pad = (n)=>String(n).padStart(2,"0");
+    const file = `TESOURA-JOGADORES-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.pdf`;
+
+    const opt = {
+      margin: [8,8,8,8],
+      filename: file,
+      image: { type: "jpeg", quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
+    };
+
+    await html2pdf().set(opt).from(root).save(); // BAIXA o PDF
+  }catch(e){
+    console.error(e);
+    alert("Falha ao baixar PDF. Veja o console.");
+  }
+}
+
+</script>
 </body>
 </html>
