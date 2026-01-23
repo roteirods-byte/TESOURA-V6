@@ -8,14 +8,25 @@ const Database = require("better-sqlite3");
 const { saveSnapshot, listSnapshots, loadSnapshot } = require("./modules/_core/archive");
 
 const app = express();
+
+// ================== PARSERS (ANTES DAS ROTAS) ==================
 app.disable("x-powered-by");
-
-// ========= PARSERS (UMA ÚNICA VEZ) =========
 app.use(cors());
-app.use(express.json({ limit: "2mb" }));
-app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
-// Se algum proxy/cliente mandar body vazio, evita quebra
+// JSON
+app.use(express.json({
+  limit: "2mb",
+  strict: false
+}));
+
+// FORM
+app.use(express.urlencoded({
+  extended: false,
+  limit: "2mb",
+  parameterLimit: 200000
+}));
+
+// body vazio: evita quebra
 app.use((req, res, next) => {
   if ((req.method === "POST" || req.method === "PUT" || req.method === "PATCH") && (req.body == null)) {
     req.body = {};
@@ -23,22 +34,22 @@ app.use((req, res, next) => {
   next();
 });
 
-// ========= VERSION (pra provar deploy) =========
+// ================== VERSION (PROVA DO DEPLOY) ==================
 app.get("/api/version", (req, res) => {
   res.json({
     ok: true,
     marker: "TESOURA-V6_BACKEND_2026-01-23_FIX_A",
-    ts: new Date().toISOString()
+    now: new Date().toISOString()
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
-// ========= DB =========
+// ================== DB ==================
 const DB_PATH = process.env.SQLITE_PATH || path.join(__dirname, "db", "tesoura.sqlite");
 const db = new Database(DB_PATH);
 
-// ========= HELPERS =========
+// ================== HELPERS ==================
 const ALLOWED_PANELS = new Set([
   "jogadores",
   "presenca_escalacao",
@@ -52,34 +63,17 @@ function mustBeAllowedPanel(panel) {
   return ALLOWED_PANELS.has(panel);
 }
 
-function toIntOrNull(v) {
-  if (v === null || v === undefined || v === "") return null;
-  const n = Number(String(v).replace(/[^\d-]/g, ""));
-  return Number.isFinite(n) ? n : null;
-}
-
-function toIntOrZero(v) {
-  const n = toIntOrNull(v);
-  return n === null ? 0 : n;
-}
-
 function str(v) {
   return (v === null || v === undefined) ? "" : String(v);
 }
 
 function pad2(n){ return String(n).padStart(2, "0"); }
-function ymd(d){
-  const yyyy = d.getFullYear();
-  const mm = pad2(d.getMonth() + 1);
-  const dd = pad2(d.getDate());
-  return `${yyyy}-${mm}-${dd}`;
-}
 
-// ========= STATIC (frontend) =========
+// ================== STATIC (frontend) ==================
 const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
 app.use("/", express.static(FRONTEND_DIR));
 
-// ========= ROTAS DE ARQUIVO (snapshots) =========
+// ================== ROTAS DE ARQUIVO (snapshots) ==================
 app.get("/api/arquivo/listar", (req, res) => {
   try {
     const panel = str(req.query.panel).trim();
@@ -118,19 +112,8 @@ app.post("/api/arquivo/salvar", (req, res) => {
   }
 });
 
-// ========= PRESENÇA / ESCALAÇÃO (API) =========
-// Observação: mantém endpoints no padrão que o frontend chama.
-
-function parseYMD(s) {
-  const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  d.setHours(0,0,0,0);
-  return d;
-}
-
+// ================== PRESENÇA / ESCALAÇÃO (API) ==================
 function getJogadoresAtivos() {
-  // ajuste se seu schema for diferente
   const rows = db.prepare(`
     SELECT id, apelido, ativo
     FROM jogadores
@@ -161,20 +144,24 @@ function getEscalacao(data_domingo, tempo) {
 }
 
 function getPagoMap(jogadores, data_domingo, now_local) {
-  // placeholder seguro: não quebra o painel
+  // placeholder seguro (não quebra)
   const map = {};
-  (jogadores || []).forEach(j => { map[j.apelido] = 0; });
+  (jogadores || []).forEach(j => { map[j.apelido] = "red"; });
   return map;
 }
 
+// ✅ CORRIGIDO: sem “Too many parameter values”
 function setPresencaChegou(data_domingo, apelido, now_local) {
-  // impede duplicado
-  const exists = db.prepare(`
-    SELECT 1 FROM presencas WHERE data_domingo=? AND apelido=?
-  `).get(data_domingo, apelido);
+  const maxOrdem = db.prepare(
+    `SELECT COALESCE(MAX(ordem),0) AS m FROM presencas WHERE data_domingo=?`
+  ).get(data_domingo).m || 0;
+
+  const exists = db.prepare(
+    `SELECT 1 FROM presencas WHERE data_domingo=? AND apelido=?`
+  ).get(data_domingo, apelido);
+
   if (exists) throw new Error("jogador já está na lista");
 
-  // hora HH:MM (usa now_local se vier)
   let hhmm = "";
   const m = String(now_local || "").match(/\b(\d{2}):(\d{2})\b/);
   if (m) hhmm = `${m[1]}:${m[2]}`;
@@ -183,20 +170,23 @@ function setPresencaChegou(data_domingo, apelido, now_local) {
     hhmm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
 
-  // próxima ordem
-  const maxRow = db.prepare(`
-    SELECT COALESCE(MAX(ordem),0) AS m FROM presencas WHERE data_domingo=?
-  `).get(data_domingo);
-  const nextOrdem = Number(maxRow?.m || 0) + 1;
-
-  // INSERT (7 colunas = 7 valores) -> sem erro de parâmetros
-  db.prepare(`
+  const sql = `
     INSERT INTO presencas (data_domingo, ordem, apelido, hora, obs, nao_joga, saiu)
-    VALUES (?,?,?,?,?,?,?)
-  `).run(data_domingo, nextOrdem, apelido, hhmm, "", 0, 0);
+    VALUES (@data_domingo, @ordem, @apelido, @hora, @obs, @nao_joga, @saiu)
+  `;
+
+  db.prepare(sql).run({
+    data_domingo,
+    ordem: maxOrdem + 1,
+    apelido,
+    hora: hhmm,
+    obs: "",
+    nao_joga: 0,
+    saiu: 0
+  });
 }
 
-// stubs: se você tiver regras reais em outro server antigo, troca aqui depois
+// stubs seguros
 function computeEscalacao1T(data_domingo, now_local) { return true; }
 function computeEscalacao2T(data_domingo, now_local) { return true; }
 
@@ -340,7 +330,7 @@ app.post("/api/presenca_escalacao/salvar", (req, res) => {
   }
 });
 
-// ========= HEALTH =========
+// ================== HEALTH ==================
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {
