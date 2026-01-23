@@ -8,33 +8,30 @@ const Database = require("better-sqlite3");
 const { saveSnapshot, listSnapshots, loadSnapshot } = require("./modules/_core/archive");
 
 const app = express();
-
-// ===== BASE =====
 app.disable("x-powered-by");
-app.use(cors());
 
-// parse (JSON + FORM) — sem duplicar parsers
+// ===== PARSE ÚNICO E GARANTIDO (NÃO DUPLICAR) =====
+app.use(cors());
 app.use(express.json({ limit: "2mb", strict: false }));
 app.use(express.urlencoded({
-  extended: true,
+  extended: false,
   limit: "2mb",
-  parameterLimit: 50000
+  parameterLimit: 200000
 }));
 
-// evita quebrar quando vier body vazio
+// Se algum proxy/cliente mandar body vazio, evita quebra
 app.use((req, res, next) => {
-  if ((req.method === "POST" || req.method === "PUT" || req.method === "PATCH") && (req.body == null)) {
+  if ((req.method === "POST" || req.method === "PUT" || req.method === "PATCH") && (req.body == null || typeof req.body !== "object")) {
     req.body = {};
   }
   next();
 });
 
-// ===== VERSION (1 rota só) =====
+// ===== VERSION (DIAGNÓSTICO) =====
 app.get("/api/version", (req, res) => {
   res.json({
     ok: true,
-    app: "TESOURA-V6",
-    marker: "TESOURA-V6_BACKEND_FIX_POSICAO_2026-01-23",
+    marker: "TESOURA-V6_BACKEND_2026-01-23_FIX_POSICAO_AUTO",
     now: new Date().toISOString()
   });
 });
@@ -98,7 +95,7 @@ app.post("/api/arquivo/salvar", (req, res) => {
   try {
     const b = req.body || {};
     const panel = str(b.panel).trim();
-    const payload = b.data ?? b.payload ?? null;
+    const payload = (b.data !== undefined) ? b.data : ((b.payload !== undefined) ? b.payload : null);
     if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
     if (payload == null) return res.status(400).json({ ok: false, error: "Faltou data" });
     const ref = saveSnapshot(panel, payload);
@@ -110,92 +107,114 @@ app.post("/api/arquivo/salvar", (req, res) => {
 
 // ========= PRESENÇA / ESCALAÇÃO (API) =========
 
-// detecta colunas reais do banco (resolve: "no such column: posicao")
-function tableCols(table) {
+// Descobre colunas reais da tabela jogadores (resolve "no such column: posicao")
+function tableColumns(tableName) {
   try {
-    return db.prepare(`PRAGMA table_info(${table})`).all().map(r => String(r.name).toLowerCase());
+    const rows = db.prepare(`PRAGMA table_info(${tableName})`).all();
+    return new Set(rows.map(r => String(r.name)));
   } catch {
-    return [];
+    return new Set();
   }
 }
 
-function pickCol(cols, candidates) {
-  for (const c of candidates) {
-    if (cols.includes(c.toLowerCase())) return c;
-  }
-  return null;
+// Escolhe automaticamente coluna de posição e de pontos
+function detectJogadoresSchema() {
+  const cols = tableColumns("jogadores");
+
+  // id e apelido
+  const idCol = cols.has("id") ? "id" : null;
+  const apelidoCol =
+    cols.has("apelido") ? "apelido" :
+    (cols.has("nome") ? "nome" : null);
+
+  // posição
+  const posCol =
+    cols.has("posicao") ? "posicao" :
+    (cols.has("pos") ? "pos" :
+    (cols.has("posição") ? "posição" : null));
+
+  // pontos
+  const pontosCol =
+    cols.has("pontos") ? "pontos" :
+    (cols.has("pontuacao") ? "pontuacao" :
+    (cols.has("pontuação") ? "pontuação" : null));
+
+  // ativo
+  const ativoCol =
+    cols.has("ativo") ? "ativo" :
+    (cols.has("is_ativo") ? "is_ativo" :
+    (cols.has("status") ? "status" : null));
+
+  return { idCol, apelidoCol, posCol, pontosCol, ativoCol, cols };
 }
 
 function getJogadoresAtivos() {
-  const cols = tableCols("jogadores");
+  const sch = detectJogadoresSchema();
 
-  const colId       = pickCol(cols, ["id"]) || "id";
-  const colApelido  = pickCol(cols, ["apelido", "nome"]) || "apelido";
-  const colAtivo    = pickCol(cols, ["ativo"]) || null;
-
-  // o seu banco provavelmente usa "pos" (e não "posicao")
-  const colPos      = pickCol(cols, ["posicao", "pos", "posição"]) || null;
-  const colPontos   = pickCol(cols, ["pontos", "ponto", "pts"]) || null;
-  const colCreated  = pickCol(cols, ["created_at", "criado_em", "created"]) || null;
-
-  const posExpr     = colPos ? `${colPos} AS posicao` : `'' AS posicao`;
-  const pontosExpr  = colPontos ? `${colPontos} AS pontos` : `NULL AS pontos`;
-  const createdExpr = colCreated ? `${colCreated} AS created_at` : `NULL AS created_at`;
-
-  let sql = `
-    SELECT
-      ${colId} AS id,
-      ${colApelido} AS apelido,
-      ${posExpr},
-      ${pontosExpr},
-      ${createdExpr}
-    FROM jogadores
-  `;
-
-  if (colAtivo) {
-    sql += ` WHERE COALESCE(${colAtivo},1)=1 `;
+  if (!sch.idCol || !sch.apelidoCol) {
+    // Falta colunas básicas
+    throw new Error("Tabela jogadores não tem colunas mínimas (id/ apelido ou nome).");
   }
 
-  sql += ` ORDER BY apelido COLLATE NOCASE `;
+  // Monta SELECT seguro (se não existir pos/pontos, manda vazio/null)
+  const selPos = sch.posCol ? sch.posCol : "''";
+  const selPontos = sch.pontosCol ? sch.pontosCol : "NULL";
+
+  // Regra de ativo: se não existir, considera todos ativos
+  let where = "1=1";
+  if (sch.ativoCol) {
+    // aceita 1/0, true/false, ou status textual
+    where = `COALESCE(${sch.ativoCol},1)=1`;
+  }
+
+  const sql = `
+    SELECT
+      ${sch.idCol} AS id,
+      ${sch.apelidoCol} AS apelido,
+      ${selPos} AS posicao,
+      ${selPontos} AS pontos
+    FROM jogadores
+    WHERE ${where}
+    ORDER BY apelido COLLATE NOCASE
+  `;
 
   return db.prepare(sql).all();
 }
 
 function getPresencas(data_domingo) {
-  const rows = db.prepare(`
+  return db.prepare(`
     SELECT id, ordem, apelido, hora, obs, nao_joga, saiu
     FROM presencas
     WHERE data_domingo=?
     ORDER BY ordem ASC, id ASC
   `).all(data_domingo);
-  return rows;
 }
 
 function getEscalacao(data_domingo, tempo) {
-  const rows = db.prepare(`
+  // se sua tabela tiver colunas diferentes, a gente ajusta depois
+  return db.prepare(`
     SELECT id, tempo, time, apelido, pos, pontos
     FROM escalacoes
     WHERE data_domingo=? AND tempo=?
     ORDER BY time ASC, pos ASC, id ASC
   `).all(data_domingo, tempo);
-  return rows;
 }
 
 function getPagoMap(jogadores) {
-  // padrão seguro: vermelho (não pagou) — não quebra o painel
   const map = {};
   (jogadores || []).forEach(j => { map[j.apelido] = "red"; });
   return map;
 }
 
 function setPresencaChegou(data_domingo, apelido, now_local) {
-  const maxOrdem = db.prepare(`SELECT COALESCE(MAX(ordem),0) AS m FROM presencas WHERE data_domingo=?`)
-    .get(data_domingo).m || 0;
+  // ordem sequencial
+  const maxOrdem = db.prepare(`SELECT COALESCE(MAX(ordem),0) AS m FROM presencas WHERE data_domingo=?`).get(data_domingo).m || 0;
 
-  const exists = db.prepare(`SELECT 1 FROM presencas WHERE data_domingo=? AND apelido=?`)
-    .get(data_domingo, apelido);
+  // impede duplicado
+  const exists = db.prepare(`SELECT 1 FROM presencas WHERE data_domingo=? AND apelido=?`).get(data_domingo, apelido);
   if (exists) throw new Error("jogador já está na lista");
 
+  // hora HH:MM
   let hhmm = "";
   const m = String(now_local || "").match(/\b(\d{2}):(\d{2})\b/);
   if (m) hhmm = `${m[1]}:${m[2]}`;
@@ -210,7 +229,6 @@ function setPresencaChegou(data_domingo, apelido, now_local) {
   `).run(data_domingo, maxOrdem + 1, apelido, hhmm, "", 0, 0);
 }
 
-// stubs (mantém seguro)
 function computeEscalacao1T() { return true; }
 function computeEscalacao2T() { return true; }
 
@@ -224,7 +242,7 @@ app.get("/api/presenca_escalacao/state", (req, res) => {
     const presencas = getPresencas(data_domingo);
     const escalacao1 = getEscalacao(data_domingo, "1T");
     const escalacao2 = getEscalacao(data_domingo, "2T");
-    const pagoMap = getPagoMap(jogadores, data_domingo, now_local);
+    const pagoMap = getPagoMap(jogadores);
 
     res.json({ ok: true, jogadores, presencas, escalacao1, escalacao2, pagoMap });
   } catch (e) {
