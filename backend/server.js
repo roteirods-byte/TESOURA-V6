@@ -9,24 +9,19 @@ const { saveSnapshot, listSnapshots, loadSnapshot } = require("./modules/_core/a
 
 const app = express();
 
-// ================== PARSERS (ANTES DAS ROTAS) ==================
+// ===== BASE =====
 app.disable("x-powered-by");
 app.use(cors());
 
-// JSON
-app.use(express.json({
-  limit: "2mb",
-  strict: false
-}));
-
-// FORM
+// parse (JSON + FORM) — sem duplicar parsers
+app.use(express.json({ limit: "2mb", strict: false }));
 app.use(express.urlencoded({
-  extended: false,
+  extended: true,
   limit: "2mb",
-  parameterLimit: 200000
+  parameterLimit: 50000
 }));
 
-// body vazio: evita quebra
+// evita quebrar quando vier body vazio
 app.use((req, res, next) => {
   if ((req.method === "POST" || req.method === "PUT" || req.method === "PATCH") && (req.body == null)) {
     req.body = {};
@@ -34,22 +29,23 @@ app.use((req, res, next) => {
   next();
 });
 
-// ================== VERSION (PROVA DO DEPLOY) ==================
+// ===== VERSION (1 rota só) =====
 app.get("/api/version", (req, res) => {
   res.json({
     ok: true,
-    marker: "TESOURA-V6_BACKEND_2026-01-23_FIX_A",
+    app: "TESOURA-V6",
+    marker: "TESOURA-V6_BACKEND_FIX_POSICAO_2026-01-23",
     now: new Date().toISOString()
   });
 });
 
 const PORT = process.env.PORT || 8080;
 
-// ================== DB ==================
+// ========= DB =========
 const DB_PATH = process.env.SQLITE_PATH || path.join(__dirname, "db", "tesoura.sqlite");
 const db = new Database(DB_PATH);
 
-// ================== HELPERS ==================
+// ========= HELPERS =========
 const ALLOWED_PANELS = new Set([
   "jogadores",
   "presenca_escalacao",
@@ -69,11 +65,11 @@ function str(v) {
 
 function pad2(n){ return String(n).padStart(2, "0"); }
 
-// ================== STATIC (frontend) ==================
+// ========= STATIC (frontend) =========
 const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
 app.use("/", express.static(FRONTEND_DIR));
 
-// ================== ROTAS DE ARQUIVO (snapshots) ==================
+// ========= ROTAS DE ARQUIVO (snapshots) =========
 app.get("/api/arquivo/listar", (req, res) => {
   try {
     const panel = str(req.query.panel).trim();
@@ -112,15 +108,57 @@ app.post("/api/arquivo/salvar", (req, res) => {
   }
 });
 
-// ================== PRESENÇA / ESCALAÇÃO (API) ==================
+// ========= PRESENÇA / ESCALAÇÃO (API) =========
+
+// detecta colunas reais do banco (resolve: "no such column: posicao")
+function tableCols(table) {
+  try {
+    return db.prepare(`PRAGMA table_info(${table})`).all().map(r => String(r.name).toLowerCase());
+  } catch {
+    return [];
+  }
+}
+
+function pickCol(cols, candidates) {
+  for (const c of candidates) {
+    if (cols.includes(c.toLowerCase())) return c;
+  }
+  return null;
+}
+
 function getJogadoresAtivos() {
-  const rows = db.prepare(`
-    SELECT id, apelido, ativo
+  const cols = tableCols("jogadores");
+
+  const colId       = pickCol(cols, ["id"]) || "id";
+  const colApelido  = pickCol(cols, ["apelido", "nome"]) || "apelido";
+  const colAtivo    = pickCol(cols, ["ativo"]) || null;
+
+  // o seu banco provavelmente usa "pos" (e não "posicao")
+  const colPos      = pickCol(cols, ["posicao", "pos", "posição"]) || null;
+  const colPontos   = pickCol(cols, ["pontos", "ponto", "pts"]) || null;
+  const colCreated  = pickCol(cols, ["created_at", "criado_em", "created"]) || null;
+
+  const posExpr     = colPos ? `${colPos} AS posicao` : `'' AS posicao`;
+  const pontosExpr  = colPontos ? `${colPontos} AS pontos` : `NULL AS pontos`;
+  const createdExpr = colCreated ? `${colCreated} AS created_at` : `NULL AS created_at`;
+
+  let sql = `
+    SELECT
+      ${colId} AS id,
+      ${colApelido} AS apelido,
+      ${posExpr},
+      ${pontosExpr},
+      ${createdExpr}
     FROM jogadores
-    WHERE COALESCE(ativo,1)=1
-    ORDER BY apelido COLLATE NOCASE
-  `).all();
-  return rows;
+  `;
+
+  if (colAtivo) {
+    sql += ` WHERE COALESCE(${colAtivo},1)=1 `;
+  }
+
+  sql += ` ORDER BY apelido COLLATE NOCASE `;
+
+  return db.prepare(sql).all();
 }
 
 function getPresencas(data_domingo) {
@@ -143,23 +181,19 @@ function getEscalacao(data_domingo, tempo) {
   return rows;
 }
 
-function getPagoMap(jogadores, data_domingo, now_local) {
-  // placeholder seguro (não quebra)
+function getPagoMap(jogadores) {
+  // padrão seguro: vermelho (não pagou) — não quebra o painel
   const map = {};
   (jogadores || []).forEach(j => { map[j.apelido] = "red"; });
   return map;
 }
 
-// ✅ CORRIGIDO: sem “Too many parameter values”
 function setPresencaChegou(data_domingo, apelido, now_local) {
-  const maxOrdem = db.prepare(
-    `SELECT COALESCE(MAX(ordem),0) AS m FROM presencas WHERE data_domingo=?`
-  ).get(data_domingo).m || 0;
+  const maxOrdem = db.prepare(`SELECT COALESCE(MAX(ordem),0) AS m FROM presencas WHERE data_domingo=?`)
+    .get(data_domingo).m || 0;
 
-  const exists = db.prepare(
-    `SELECT 1 FROM presencas WHERE data_domingo=? AND apelido=?`
-  ).get(data_domingo, apelido);
-
+  const exists = db.prepare(`SELECT 1 FROM presencas WHERE data_domingo=? AND apelido=?`)
+    .get(data_domingo, apelido);
   if (exists) throw new Error("jogador já está na lista");
 
   let hhmm = "";
@@ -170,25 +204,15 @@ function setPresencaChegou(data_domingo, apelido, now_local) {
     hhmm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
 
-  const sql = `
+  db.prepare(`
     INSERT INTO presencas (data_domingo, ordem, apelido, hora, obs, nao_joga, saiu)
-    VALUES (@data_domingo, @ordem, @apelido, @hora, @obs, @nao_joga, @saiu)
-  `;
-
-  db.prepare(sql).run({
-    data_domingo,
-    ordem: maxOrdem + 1,
-    apelido,
-    hora: hhmm,
-    obs: "",
-    nao_joga: 0,
-    saiu: 0
-  });
+    VALUES (?,?,?,?,?,?,?)
+  `).run(data_domingo, maxOrdem + 1, apelido, hhmm, "", 0, 0);
 }
 
-// stubs seguros
-function computeEscalacao1T(data_domingo, now_local) { return true; }
-function computeEscalacao2T(data_domingo, now_local) { return true; }
+// stubs (mantém seguro)
+function computeEscalacao1T() { return true; }
+function computeEscalacao2T() { return true; }
 
 app.get("/api/presenca_escalacao/state", (req, res) => {
   try {
@@ -292,7 +316,7 @@ app.post("/api/presenca_escalacao/escalar", (req, res) => {
   try {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
-    const tempo = str(b.tempo).trim(); // '1T'|'2T'
+    const tempo = str(b.tempo).trim();
     const now_local = str(b.now_local).trim();
     if (!data_domingo || (tempo !== "1T" && tempo !== "2T")) return res.status(400).json({ ok: false, error: "Faltou data_domingo/tempo" });
 
@@ -330,9 +354,9 @@ app.post("/api/presenca_escalacao/salvar", (req, res) => {
   }
 });
 
-// ================== HEALTH ==================
+// ========= HEALTH =========
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {
-  console.log("TESOURA backend OK na porta", PORT, "DB:", DB_PATH);
+  console.log("TESOURA API rodando na porta", PORT, "DB:", DB_PATH);
 });
