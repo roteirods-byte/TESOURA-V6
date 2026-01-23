@@ -9,6 +9,25 @@ const { saveSnapshot, listSnapshots, loadSnapshot } = require("./modules/_core/a
 
 const app = express();
 
+// ===== PARSE GARANTIDO (JSON + FORM) =====
+app.disable("x-powered-by");
+
+// evita 400 por body vazio / limite de parametros
+app.use(express.json({ limit: "2mb", strict: false }));
+
+app.use(express.urlencoded({
+  extended: false,
+  limit: "2mb",
+  parameterLimit: 200000
+}));
+
+// fallback: se chegar JSON sem parser (proxy estranho), tenta ler como texto
+app.use((req, res, next) => {
+  if ((req.method === "POST" || req.method === "PUT") && req.body === undefined) req.body = {};
+  next();
+});
+
+
 // ========= PARSERS (OBRIGATÓRIO vir ANTES DAS ROTAS) =========
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
@@ -22,7 +41,13 @@ app.get("/api/version", (req, res) => {
   });
 });
 
-
+app.get("/api/version", (req, res) => {
+  res.json({
+    ok: true,
+    app: "TESOURA-V6",
+    ts: new Date().toISOString()
+  });
+});
 
 // Se algum proxy/cliente mandar body vazio, evita quebra
 app.use((req, res, next) => {
