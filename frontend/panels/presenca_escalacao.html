@@ -58,41 +58,56 @@ Regras 1º e 2º tempo ficam no BACKEND (sem mexer no layout).
   </div>
 
   <script>
-    const statusEl = document.getElementById("status");
-    const conteudoEl = document.getElementById("conteudo");
+  const statusEl = document.getElementById("status");
+  const conteudoEl = document.getElementById("conteudo");
 
-    async function atualizarHistorico(){
-      const r = await fetch("/api/presenca_escalacao/historico");
-      const resp = await r.json();
-      const sel = document.getElementById("histSel");
-      sel.innerHTML = `<option value="">HISTÓRICO (selecione)</option>`;
-      if(!resp.ok){ statusEl.textContent = "ERRO: histórico"; return; }
-      resp.items.forEach(it => {
-        const opt = document.createElement("option");
-        opt.value = it.ref;
-        opt.textContent = it.ref;
-        sel.appendChild(opt);
-      });
-      statusEl.textContent = "Histórico atualizado";
+  function pad2(n){ return String(n).padStart(2,"0"); }
+
+  function ymd(d){
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  }
+
+  // Próximo domingo (inclui hoje se já for domingo)
+  function proximoDomingoISO(){
+    const d = new Date();
+    const dow = d.getDay(); // 0=domingo
+    const add = (7 - dow) % 7;
+    d.setDate(d.getDate() + add);
+    return ymd(d);
+  }
+
+  function nowLocalStr(){
+    const d = new Date();
+    return `${ymd(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+
+  async function carregarState(){
+    const data_domingo = proximoDomingoISO();
+    const now_local = nowLocalStr();
+
+    statusEl.textContent = `Carregando... (domingo: ${data_domingo})`;
+    const url = `/api/presenca_escalacao/state?data_domingo=${encodeURIComponent(data_domingo)}&now_local=${encodeURIComponent(now_local)}`;
+
+    const r = await fetch(url);
+    const resp = await r.json().catch(()=>null);
+
+    if(!resp || !resp.ok){
+      statusEl.textContent = "ERRO no /state: " + (resp?.error || `HTTP ${r.status}`);
+      return;
     }
 
-    async function carregarDoHistorico(){
-      const ref = document.getElementById("histSel").value;
-      if(!ref){ statusEl.textContent = "Selecione um item do histórico"; return; }
-      statusEl.textContent = "Carregando histórico...";
-      const r = await fetch(`/api/presenca_escalacao/carregar?ref=${encodeURIComponent(ref)}`);
-      const resp = await r.json();
-      if(!resp.ok){ statusEl.textContent = "ERRO: " + (resp.error || "falha"); return; }
+    conteudoEl.textContent = JSON.stringify(resp, null, 2);
+    statusEl.textContent = `OK: carregado (domingo: ${data_domingo})`;
+  }
 
-      conteudoEl.textContent = JSON.stringify(resp.data, null, 2);
-      statusEl.textContent = "OK: histórico carregado";
-    }
+  // Reaproveita botões existentes do layout
+  document.getElementById("btnHistAtualizar").onclick = carregarState;
+  document.getElementById("btnHistCarregar").onclick = carregarState;
+  document.getElementById("btnPdf").onclick = () => window.print();
 
-    document.getElementById("btnHistAtualizar").onclick = atualizarHistorico;
-    document.getElementById("btnHistCarregar").onclick = carregarDoHistorico;
-    document.getElementById("btnPdf").onclick = () => window.print();
-
-    atualizarHistorico();
-  </script>
+  // carrega ao abrir
+  carregarState();
+</script>
+  
 </body>
 </html>
