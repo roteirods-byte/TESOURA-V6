@@ -14,6 +14,16 @@ app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
+app.get("/api/version", (req, res) => {
+  res.json({
+    ok: true,
+    marker: "TESOURA-V6_BACKEND_2026-01-23_A",
+    now: new Date().toISOString()
+  });
+});
+
+
+
 // Se algum proxy/cliente mandar body vazio, evita quebra
 app.use((req, res, next) => {
   if ((req.method === "POST" || req.method === "PUT" || req.method === "PATCH") && req.body == null) {
