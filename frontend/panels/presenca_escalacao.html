@@ -4,8 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Presença / Escalação</title>
+
   <link rel="stylesheet" href="../app/css/tokens.css" />
   <link rel="stylesheet" href="../app/css/ui.css" />
+
   <style>
     .wrap{ padding:14px; }
     .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px; }
@@ -17,20 +19,21 @@
     select{ background:rgba(255,255,255,.06); }
     h1{ margin:0 0 10px 0; color:var(--accent); }
     p{ color:var(--muted); margin:0; }
-    .box{ margin-top:12px; font-family:monospace; font-size:13px; white-space:pre-wrap; color:var(--text); }
-
-    /* PDF (impressão do que está na tela) */
-    @media print{
-      .row, button, select { display:none !important; }
-      .wrap{ padding:0 !important; }
-      .card{ border:none !important; }
-      h1{ color:#000 !important; }
-      #status{ color:#000 !important; }
-      #conteudo{ color:#000 !important; }
-      body{ background:#fff !important; color:#000 !important; }
+    .box{
+      margin-top:12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      font-size:13px;
+      white-space:pre-wrap;
+      color:var(--text);
+      background: rgba(255,255,255,.04);
+      border:1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      min-height: 220px;
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="card">
@@ -42,14 +45,16 @@
         </select>
         <button id="btnHistAtualizar">ATUALIZAR HISTÓRICO</button>
         <button id="btnHistCarregar">CARREGAR SELECIONADO</button>
-        <button id="btnPdf">BAIXAR PDF (ATUAL)</button>
+        <button id="btnPdf">BAIXAR PDF (ARQUIVO)</button>
       </div>
 
       <div id="status" style="margin-top:10px;color:var(--muted)"></div>
-
       <div id="conteudo" class="box"></div>
     </div>
   </div>
+
+  <!-- PDF ARQUIVO REAL (LOCAL) -->
+  <script src="../vendor/html2pdf.bundle.min.js"></script>
 
   <script>
     const statusEl = document.getElementById("status");
@@ -57,15 +62,12 @@
     const histSel = document.getElementById("histSel");
 
     function pad2(n){ return String(n).padStart(2,"0"); }
-
-    function ymd(d){
-      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-    }
+    function ymd(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
 
     function ymdToBr(s){
       s = String(s || "").trim();
       if(!s) return "";
-      if(s.includes("/")) return s; // já BR
+      if(s.includes("/")) return s;
       const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
       if(m) return `${m[3]}/${m[2]}/${m[1]}`;
       return s;
@@ -91,21 +93,11 @@
       return { r, j };
     }
 
-    async function apiPostJSON(url, bodyObj){
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bodyObj || {})
-      });
-      const j = await r.json().catch(() => ({ ok:false, error:"Resposta inválida do servidor" }));
-      return { r, j };
-    }
-
     function setConteudo(obj){
       conteudoEl.textContent = JSON.stringify(obj, null, 2);
     }
 
-    // ====== FALLBACK: carrega STATE (sempre existe no seu backend atual) ======
+    // ====== FALLBACK: carrega STATE ======
     async function carregarState(){
       const data_domingo = proximoDomingoISO();
       const now_local = nowLocalStr();
@@ -129,7 +121,6 @@
       statusEl.textContent = "Atualizando histórico...";
       const { r, j } = await apiGetJSON("/api/presenca_escalacao/historico");
 
-      // Se não existir, cai no fallback sem quebrar
       if(!j || !j.ok){
         statusEl.textContent = "Histórico indisponível. Carregando STATE...";
         await carregarState();
@@ -159,7 +150,6 @@
       const url = `/api/presenca_escalacao/carregar?ref=${encodeURIComponent(ref)}`;
       const { r, j } = await apiGetJSON(url);
 
-      // Se não existir, cai no fallback sem quebrar
       if(!j || !j.ok){
         statusEl.textContent = "Não deu para carregar histórico. Carregando STATE...";
         await carregarState();
@@ -170,11 +160,64 @@
       statusEl.textContent = `OK: histórico carregado (${ref})`;
     }
 
+    function pdfFileName(){
+      const dataISO = proximoDomingoISO();
+      const dataBR = ymdToBr(dataISO).replaceAll("/", "-");
+      return `PRESENCA_ESCALACAO_${dataBR}.pdf`;
+    }
+
+    async function baixarPdfArquivoReal(){
+      if (typeof html2pdf === "undefined") {
+        alert("ERRO: PDF não carregou. (html2pdf)");
+        return;
+      }
+
+      const dataISO = proximoDomingoISO();
+      const titulo = `PRESENÇA / ESCALAÇÃO (V6) - DOMINGO ${ymdToBr(dataISO)}`;
+
+      // monta um “papel” limpo só para o PDF
+      const tmp = document.createElement("div");
+      tmp.style.background = "#ffffff";
+      tmp.style.color = "#000000";
+      tmp.style.padding = "14px";
+      tmp.style.fontFamily = "Arial, sans-serif";
+
+      const h = document.createElement("div");
+      h.style.fontWeight = "800";
+      h.style.fontSize = "14px";
+      h.style.marginBottom = "10px";
+      h.textContent = titulo;
+
+      const pre = document.createElement("pre");
+      pre.style.whiteSpace = "pre-wrap";
+      pre.style.wordBreak = "break-word";
+      pre.style.fontFamily = "ui-monospace, Menlo, Consolas, monospace";
+      pre.style.fontSize = "10px";
+      pre.textContent = conteudoEl.textContent || "";
+
+      tmp.appendChild(h);
+      tmp.appendChild(pre);
+
+      document.body.appendChild(tmp);
+
+      try{
+        await html2pdf().set({
+          margin: 10,
+          filename: pdfFileName(),
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+        }).from(tmp).save();
+      } catch(e){
+        alert("ERRO PDF: " + (e && (e.message||e) ? (e.message||e) : "falha"));
+      } finally {
+        tmp.remove();
+      }
+    }
+
     document.getElementById("btnHistAtualizar").onclick = atualizarHistorico;
     document.getElementById("btnHistCarregar").onclick = carregarDoHistorico;
-    document.getElementById("btnPdf").onclick = () => window.print();
+    document.getElementById("btnPdf").onclick = baixarPdfArquivoReal;
 
-    // Ao abrir: tenta histórico (se existir) e depois state
     (async () => {
       await atualizarHistorico();
       await carregarState();
