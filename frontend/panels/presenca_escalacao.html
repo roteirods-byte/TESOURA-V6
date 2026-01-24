@@ -1,6 +1,3 @@
-cd /home/roteiro_ds/tesoura-v6 || exit 1
-
-cat > frontend/panels/presenca_escalacao.html <<'HTML'
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -8,24 +5,39 @@ cat > frontend/panels/presenca_escalacao.html <<'HTML'
   <title>TESOURA - PRESENÇA / ESCALAÇÃO</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- REVISAO_PRESENCA_R1 - 2026-01-24
+    - Corrige: NÃO VAI JOGAR / EXCLUIR / ESCALAR 1T
+    - PDF Presença = arquivo (jsPDF + autoTable) (não print)
+    - PDF Escalação 1T/2T = print (html2pdf) (como você aceitou)
+    - Evita erros de console: não faz .json() em HTML/404
+    - Tenta múltiplos endpoints (fallback) e usa o primeiro que funcionar
+  -->
+
   <style>
     body{margin:0;padding:0;font-family:Arial,sans-serif;background:#0f172a;color:#f9fafb;font-size:12px}
     header{background:#020617;padding:12px 16px;text-align:center;font-weight:bold;letter-spacing:1px;text-transform:uppercase}
     .container{max-width:1400px;margin:0 auto;padding:16px}
     h2{margin:8px 0;color:#f97316;text-transform:uppercase}
-    .painel{background:#020617;border-radius:12px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,0.35);margin-bottom:14px;font-size:12px}
+    .painel{background:#020617;border-radius:10px;padding:10px;box-shadow:0 2px 10px rgba(0,0,0,0.35);margin-bottom:14px;font-size:12px}
     .linhas-topo{display:flex;gap:16px;margin-bottom:16px}
     .col-50{flex:1;min-width:0}
-    .row-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
-    .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid rgba(148,163,184,0.25);background:rgba(15,23,42,0.35);color:#cbd5e1;font-size:12px}
-    .badge strong{color:#fff}
-    .muted{color:#cbd5e1}
-    .ok{color:#22c55e;font-weight:bold}
-    .err{color:#ef4444;font-weight:bold}
+
+    .row-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .badge{font-size:12px;color:#cbd5e1;padding:6px 10px;border:1px solid rgba(148,163,184,0.25);border-radius:10px;background:rgba(15,23,42,0.35);display:inline-block}
+    .badge strong{color:#f9fafb}
+    .spacer{flex:1}
 
     button{
-      padding:8px 12px;border-radius:10px;border:none;cursor:pointer;font-weight:bold;
-      text-transform:uppercase;font-size:11px;line-height:1;height:34px;min-width:110px;
+      padding:6px 10px;
+      border-radius:6px;
+      border:none;
+      cursor:pointer;
+      font-weight:bold;
+      text-transform:uppercase;
+      font-size:11px;
+      line-height:1;
+      height:30px;
+      min-width:110px;
     }
     .btn-primario{background:#22c55e;color:#022c22}
     .btn-secundario{background:#0ea5e9;color:#0f172a}
@@ -34,200 +46,231 @@ cat > frontend/panels/presenca_escalacao.html <<'HTML'
     .btn-chegou{background:#10b981;color:#022c22;min-width:120px}
     .btn-nao-joga{background:#64748b;color:#e5e7eb;min-width:140px}
     .btn-excluir{background:#ef4444;color:#f9fafb;min-width:90px}
-    .btn-mini{min-width:auto;height:28px;padding:0 10px;border-radius:10px;font-size:10px}
+    .btn-saiu{min-width:56px;height:24px;font-size:10px;padding:0 8px;line-height:1;background:#22c55e;color:#0b1220;border:1px solid rgba(34,197,94,0.6);border-radius:8px;cursor:pointer;}
+    .btn-saiu:hover{filter:brightness(1.05);}
 
     table{width:100%;border-collapse:collapse;margin-top:8px;background:#020617;font-size:11px}
-    th,td{border:1px solid #334155;padding:4px 6px;text-align:center;text-transform:uppercase;white-space:nowrap}
+    th,td{border:1px solid #334155;padding:2px 4px;text-align:center;text-transform:uppercase;white-space:nowrap;font-size:11px}
     th{background:#111827;color:#f97316;position:sticky;top:0;z-index:1}
     tr:nth-child(even){background:#0b1120}
     tr:nth-child(odd){background:#020617}
 
-    .painel-scroll{overflow-y:auto;max-height:360px}
+    .status-info{font-size:12px;margin-top:6px;color:#cbd5e1}
+    .painel-scroll{overflow-y:auto;max-height:320px}
+    .linhas-topo .col-50:first-child .painel-scroll{max-height:420px;}
+
     .riscado{text-decoration:line-through;opacity:.55}
+    .muted{color:#cbd5e1;opacity:.9}
+
     .grid-escalacao{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
-    .col-escalacao{min-width:0}
-    @media (max-width: 980px){.linhas-topo{flex-direction:column}.grid-escalacao{grid-template-columns:1fr}}
+    @media (max-width: 980px){.grid-escalacao{grid-template-columns:1fr}}
+    .grid-escalacao table{table-layout:fixed;}
+    .grid-escalacao th,.grid-escalacao td{overflow:hidden;text-overflow:ellipsis;}
 
-    .titulo-linha{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-    .input-date{
-      height:34px;border-radius:10px;border:1px solid rgba(148,163,184,0.25);
-      background:rgba(15,23,42,0.35);color:#fff;padding:0 10px;font-weight:bold;
+    .totais{font-weight:bold;text-align:right;margin-top:6px;font-size:12px;color:#cbd5e1}
+    .legenda{font-size:11px;margin-top:10px;color:#cbd5e1}
+    .t-amarelo{color:#facc15;font-weight:bold}
+    .t-azul{color:#38bdf8;font-weight:bold}
+
+    .input-data{
+      height:30px;border-radius:10px;border:1px solid rgba(148,163,184,0.25);
+      padding:0 10px;background:rgba(15,23,42,0.35);color:#f9fafb;
+      font-weight:bold;
     }
-    .mini-info{font-size:12px;color:#cbd5e1;margin-top:6px}
 
-    /* PDF: não usa print */
+    /* “pdf-print” (somente para escalações 1T/2T via html2pdf) */
+    body.pdf-mode button, body.pdf-mode .no-print{ display:none !important; }
+    body.pdf-1t .linhas-topo{ display:none !important; }
+    body.pdf-1t .grid-escalacao .col-escalacao:nth-child(2){ display:none !important; }
+    body.pdf-1t .grid-escalacao{ grid-template-columns:1fr !important; }
+    body.pdf-2t .linhas-topo{ display:none !important; }
+    body.pdf-2t .grid-escalacao .col-escalacao:nth-child(1){ display:none !important; }
+    body.pdf-2t .grid-escalacao{ grid-template-columns:1fr !important; }
   </style>
 
-  <!-- PDF por DADOS (ARQUIVO), não print -->
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+  <!-- libs:
+    - jsPDF + autoTable: PDF "arquivo" (texto) da presença
+    - html2pdf: print (ok) das escalações
+  -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
 </head>
 
 <body>
-<header>TESOURA - PRESENÇA / ESCALAÇÃO</header>
+  <header>TESOURA - PRESENÇA / ESCALAÇÃO</header>
 
-<div class="container">
+  <div class="container">
 
-  <!-- TOPO -->
-  <div class="linhas-topo">
+    <div class="linhas-topo">
 
-    <!-- JOGADORES -->
-    <div class="col-50">
-      <div class="painel">
-        <div class="titulo-linha">
+      <!-- COLUNA 1: JOGADORES -->
+      <div class="col-50">
+        <div class="painel">
           <h2>Jogadores (todos)</h2>
-          <span class="badge">TOTAL: <strong id="total-jogadores">0</strong></span>
-        </div>
-        <div class="mini-info">Clique em <b>CHEGOU AGORA</b> quando o jogador chegar.</div>
-        <div id="status-jogadores" class="mini-info"></div>
+          <div class="status-info">Clique em <b>CHEGOU AGORA</b> quando o jogador chegar.</div>
+          <div id="status-jogadores" class="status-info"></div>
 
-        <div class="painel-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:70px">ID</th>
-                <th>APELIDO</th>
-                <th style="width:170px">CHEGOU AGORA</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-jogadores-todos"></tbody>
-          </table>
+          <div class="painel-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:70px">ID</th>
+                  <th>APELIDO</th>
+                  <th style="width:170px">CHEGOU AGORA</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-jogadores-todos"></tbody>
+            </table>
+          </div>
+
+          <div class="totais" id="total-jogadores"></div>
         </div>
       </div>
-    </div>
 
-    <!-- PRESENÇA HOJE -->
-    <div class="col-50">
-      <div class="painel">
-        <div class="titulo-linha">
-          <h2>Presença Hoje</h2>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <span class="badge">Presentes: <strong id="presentes-hoje">0</strong></span>
-            <label class="badge">Data do jogo:
-              <input id="dataDomingo" class="input-date" type="date" />
-            </label>
+      <!-- COLUNA 2: PRESENÇA HOJE -->
+      <div class="col-50">
+        <div class="painel painel-presenca">
+          <h2>Presença hoje</h2>
+
+          <div class="row-actions" style="margin-bottom:8px">
+            <div class="muted">Presentes hoje: <b id="qtd-presenca">0</b></div>
+            <div class="spacer"></div>
+            <div class="muted">Data do jogo:</div>
+            <input id="data-jogo" class="input-data" type="date" />
+            <span class="badge"><strong>Horário da escalação:</strong> 06:20</span>
+          </div>
+
+          <div class="row-actions" style="margin-bottom:8px">
+            <button id="btn-limpar-hoje" class="btn-perigo">Limpar hoje</button>
+            <button id="btn-escalar-1t" class="btn-primario">Escalar 1º tempo</button>
+
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div class="badge" id="badge-hora-desfazer-1t">Hora agora: --:--</div>
+              <button id="btn-desfazer-1t" class="btn-neutro">Desfazer 1º tempo</button>
+            </div>
+
+            <button id="btn-pdf-presenca" class="btn-neutro">Baixar PDF</button>
+
+            <span id="status-presenca" class="status-info" style="margin:0"></span>
+          </div>
+
+          <div class="painel-scroll" style="max-height:360px">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:70px">ID</th>
+                  <th style="width:70px">ORDEM</th>
+                  <th>APELIDO</th>
+                  <th style="width:70px">HORA</th>
+                  <th style="width:70px">OBS</th>
+                  <th style="width:160px">NÃO VAI JOGAR</th>
+                  <th style="width:120px">EXCLUIR</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-presenca-hoje"></tbody>
+            </table>
+          </div>
+
+          <div class="legenda">
+            Obs: nomes riscados = <b>NÃO VAI JOGAR</b> ou já escalados (não entram de novo).
           </div>
         </div>
+      </div>
 
-        <div class="row-actions">
-          <button id="btnLimparHoje" class="btn-perigo">Limpar hoje</button>
-          <button id="btnEscalar1T" class="btn-primario">Escalar 1º tempo</button>
+    </div>
 
-          <!-- MARCADOR HH:MM acima do desfazer 1T -->
-          <span class="badge" id="clock1t">Hora: <strong>--:--</strong></span>
-          <button id="btnDesfazer1T" class="btn-neutro">Desfazer 1º tempo</button>
+    <!-- ESCALAÇÃO -->
+    <div class="painel" id="painelEscalacao">
+      <h2>Escalação do jogo</h2>
 
-          <button id="btnPdfPresenca" class="btn-neutro">Baixar PDF (arquivo)</button>
-        </div>
+      <div class="row-actions" style="margin-bottom:8px">
+        <span class="badge" id="badge-hora-agora">Hora agora: --:--</span>
 
-        <div id="status-presenca" class="mini-info"></div>
+        <button id="btn-escalar-2t" class="btn-primario">Escalar 2º tempo</button>
+        <button id="btn-desfazer-2t" class="btn-neutro">Desfazer 2º tempo</button>
 
-        <div class="painel-scroll" style="max-height:360px">
+        <button id="btn-pdf-1t" class="btn-neutro">Baixar PDF 1º tempo</button>
+        <button id="btn-pdf-2t" class="btn-neutro">Baixar PDF 2º tempo</button>
+
+        <button id="btn-salvar" class="btn-secundario">Salvar</button>
+
+        <span class="spacer"></span>
+        <span class="muted" id="status-escalacao"></span>
+      </div>
+
+      <div class="grid-escalacao">
+        <!-- 1T -->
+        <div class="col-escalacao" id="col-1t">
+          <div class="muted" style="font-weight:bold;margin-bottom:6px">
+            1º TEMPO — JOGO DAS 06:40 ÀS 07:40
+          </div>
           <table>
             <thead>
               <tr>
-                <th style="width:70px">ID</th>
-                <th style="width:70px">ORDEM</th>
-                <th>APELIDO</th>
-                <th style="width:90px">HORA</th>
-                <th style="width:90px">OBS</th>
-                <th style="width:170px">NÃO VAI JOGAR</th>
-                <th style="width:110px">EXCLUIR</th>
+                <th style="width:60px">ID</th>
+                <th style="width:60px">POS</th>
+                <th class="t-amarelo">AMARELO</th>
+                <th style="width:70px">SAIU</th>
+                <th class="t-azul">AZUL</th>
+                <th style="width:70px">SAIU</th>
               </tr>
             </thead>
-            <tbody id="tbody-presenca-hoje"></tbody>
+            <tbody id="tbody-esc-1t"></tbody>
           </table>
+          <div class="legenda" style="text-align:right">Botão <b>SAIU</b> risca o nome.</div>
         </div>
+
+        <!-- 2T -->
+        <div class="col-escalacao" id="col-2t">
+          <div class="muted" style="font-weight:bold;margin-bottom:6px">
+            2º TEMPO — JOGO DAS 08:00 ÀS 09:00
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:60px">ID</th>
+                <th style="width:60px">POS</th>
+                <th class="t-amarelo">AMARELO</th>
+                <th style="width:70px">SAIU</th>
+                <!-- AZUL na coluna CERTA -->
+                <th class="t-azul">AZUL</th>
+                <th style="width:70px">SAIU</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-esc-2t"></tbody>
+          </table>
+          <div class="legenda" style="text-align:right">Prioridade: quem não jogou.</div>
+        </div>
+      </div>
+
+      <div class="legenda" style="margin-top:10px">
+        OBS: C (compareceu e não jogou) | F (faltou) | 1 (jogou 1º) | 2 (jogou 2º) | 1-2 (jogou os dois) |
+        <span style="color:#22c55e;font-weight:bold">P (verde) pagou</span> |
+        <span style="color:#ef4444;font-weight:bold">P (vermelho) não pagou</span>
       </div>
     </div>
 
   </div>
-
-  <!-- ESCALAÇÃO -->
-  <div class="painel">
-    <div class="titulo-linha">
-      <h2>Escalação do Jogo</h2>
-      <div class="row-actions" style="margin:0">
-        <span class="badge">Hora agora: <strong id="clockGeral">--:--</strong></span>
-        <button id="btnEscalar2T" class="btn-primario">Escalar 2º tempo</button>
-        <button id="btnDesfazer2T" class="btn-neutro">Desfazer 2º tempo</button>
-        <button id="btnPdf1T" class="btn-neutro">Baixar PDF 1º tempo</button>
-        <button id="btnPdf2T" class="btn-neutro">Baixar PDF 2º tempo</button>
-      </div>
-    </div>
-
-    <div class="mini-info">
-      OBS: C (compareceu e não jogou) | F (faltou) | 1 (jogou 1º) | 2 (jogou 2º) | 1-2 (jogou os dois) |
-      <span class="ok">P (verde) pagou</span> |
-      <span class="err">P (vermelho) não pagou</span>
-    </div>
-
-    <div class="grid-escalacao" style="margin-top:10px">
-      <!-- 1T -->
-      <div class="col-escalacao">
-        <div class="titulo-linha">
-          <span class="badge">1º TEMPO</span>
-          <span class="badge muted">Botão SAIU risca o nome.</span>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width:70px">POS</th>
-              <th>AMARELO</th>
-              <th style="width:90px">SAIU</th>
-              <th>AZUL</th>
-              <th style="width:90px">SAIU</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-esc-1t"></tbody>
-        </table>
-      </div>
-
-      <!-- 2T -->
-      <div class="col-escalacao">
-        <div class="titulo-linha">
-          <span class="badge">2º TEMPO</span>
-          <span class="badge muted">Prioridade: quem não jogou.</span>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width:70px">POS</th>
-              <th>AMARELO</th>
-              <th style="width:90px">SAIU</th>
-              <th>AZUL</th>
-              <th style="width:90px">SAIU</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-esc-2t"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-</div>
 
 <script>
-  // =====================
+(() => {
+  // =======================
   // Helpers de data/hora
-  // =====================
-  function pad2(n){ return String(n).padStart(2,'0'); }
-  function ymd(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+  // =======================
+  const pad2 = n => String(n).padStart(2,"0");
+  const ymd = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  const hm  = d => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
   function ymdToBr(s){
-    s = String(s||'').trim();
+    s = String(s||"").trim();
     const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if(m) return `${m[3]}/${m[2]}/${m[1]}`;
     return s;
   }
-  function nowHHMM(){
-    const d = new Date();
-    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  }
-  function nowLocalStr(){
-    const d = new Date();
-    return `${ymd(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  }
-  // próximo domingo (inclui hoje se for domingo)
+
+  // Próximo domingo (inclui hoje se já for domingo)
   function proximoDomingoISO(){
     const d = new Date();
     const dow = d.getDay(); // 0=domingo
@@ -236,553 +279,574 @@ cat > frontend/panels/presenca_escalacao.html <<'HTML'
     return ymd(d);
   }
 
-  // =====================
-  // Elementos
-  // =====================
-  const totalJogEl = document.getElementById('total-jogadores');
-  const presentesHojeEl = document.getElementById('presentes-hoje');
-  const statusJogEl = document.getElementById('status-jogadores');
-  const statusPresEl = document.getElementById('status-presenca');
+  function nowLocalStr(){
+    const d = new Date();
+    return `${ymd(d)} ${hm(d)}`;
+  }
 
-  const tbodyJog = document.getElementById('tbody-jogadores-todos');
-  const tbodyPres = document.getElementById('tbody-presenca-hoje');
-  const tbody1t = document.getElementById('tbody-esc-1t');
-  const tbody2t = document.getElementById('tbody-esc-2t');
+  // =======================
+  // DOM refs
+  // =======================
+  const el = id => document.getElementById(id);
 
-  const inpData = document.getElementById('dataDomingo');
+  const statusJog = el("status-jogadores");
+  const statusPres = el("status-presenca");
+  const statusEsc = el("status-escalacao");
 
-  const btnLimpar = document.getElementById('btnLimparHoje');
-  const btnEsc1 = document.getElementById('btnEscalar1T');
-  const btnDes1 = document.getElementById('btnDesfazer1T');
-  const btnPdfPres = document.getElementById('btnPdfPresenca');
+  const tbodyJog = el("tbody-jogadores-todos");
+  const tbodyPres = el("tbody-presenca-hoje");
+  const tbody1 = el("tbody-esc-1t");
+  const tbody2 = el("tbody-esc-2t");
 
-  const btnEsc2 = document.getElementById('btnEscalar2T');
-  const btnDes2 = document.getElementById('btnDesfazer2T');
-  const btnPdf1 = document.getElementById('btnPdf1T');
-  const btnPdf2 = document.getElementById('btnPdf2T');
+  const totalJog = el("total-jogadores");
+  const qtdPres = el("qtd-presenca");
 
-  const clock1t = document.querySelector('#clock1t strong');
-  const clockG = document.getElementById('clockGeral');
+  const dataJogo = el("data-jogo");
 
-  // =====================
-  // Estado
-  // =====================
+  // Clock badges
+  const badgeHoraAgora = el("badge-hora-agora");
+  const badgeHoraDesf = el("badge-hora-desfazer-1t");
+
+  function tickClocks(){
+    const d = new Date();
+    const txt = `Hora agora: ${hm(d)}`;
+    badgeHoraAgora.textContent = txt;
+    badgeHoraDesf.textContent = txt;
+  }
+  tickClocks();
+  setInterval(tickClocks, 15000);
+
+  // default date
+  dataJogo.value = proximoDomingoISO();
+
+  // =======================
+  // API (robusta contra 404/HTML)
+  // =======================
+  async function fetchSmart(url, opts){
+    const r = await fetch(url, opts || {});
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    const text = await r.text();
+
+    // se veio HTML (404 do nginx etc.), não tenta JSON
+    const looksHtml = text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html") || ct.includes("text/html");
+    if(looksHtml){
+      return { ok:false, http:r.status, html:true, text };
+    }
+
+    // tenta JSON
+    let j = null;
+    try { j = JSON.parse(text); } catch(e){
+      return { ok:false, http:r.status, json:false, text };
+    }
+
+    if(!r.ok) return { ok:false, http:r.status, j };
+    return { ok:true, http:r.status, j };
+  }
+
+  async function getFirstOk(urls){
+    for(const u of urls){
+      const res = await fetchSmart(u, { method:"GET" });
+      if(res.ok && res.j && res.j.ok) return res.j;
+    }
+    return null;
+  }
+
+  async function postFirstOk(urls, body){
+    for(const u of urls){
+      const res = await fetchSmart(u, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(body || {})
+      });
+      if(res.ok && res.j && res.j.ok) return res.j;
+    }
+    return null;
+  }
+
+  // =======================
+  // Endpoints (tentativas)
+  // =======================
+  function q(v){ return encodeURIComponent(v); }
+
+  function urlsState(){
+    const d = dataJogo.value || proximoDomingoISO();
+    const now = nowLocalStr();
+    return [
+      `/api/presenca_escalacao/state?data_domingo=${q(d)}&now_local=${q(now)}`,
+      `/api/presenca_escalacao/state?data_domingo=${q(d)}`,
+      `/api/presenca_escalacao/state`,
+    ];
+  }
+
+  function urlsChegouAgora(){
+    return [
+      `/api/presenca_escalacao/chegou_agora`,
+      `/api/presenca_escalacao/chegouAgora`,
+      `/api/presenca_escalacao/chegou`,
+      `/api/presenca_escalacao/add`,
+      `/api/presenca_escalacao/presenca/add`,
+    ];
+  }
+
+  function urlsToggleNaoJoga(){
+    return [
+      `/api/presenca_escalacao/toggle_nao_joga`,
+      `/api/presenca_escalacao/toggle_nao_jogar`,
+      `/api/presenca_escalacao/nao_joga/toggle`,
+      `/api/presenca_escalacao/nao_vai_jogar/toggle`,
+      `/api/presenca_escalacao/toggleNaoJoga`,
+    ];
+  }
+
+  function urlsExcluir(){
+    return [
+      `/api/presenca_escalacao/remover`,
+      `/api/presenca_escalacao/excluir`,
+      `/api/presenca_escalacao/remove`,
+      `/api/presenca_escalacao/presenca/remover`,
+      `/api/presenca_escalacao/presenca/excluir`,
+    ];
+  }
+
+  function urlsLimparHoje(){
+    return [
+      `/api/presenca_escalacao/limpar_hoje`,
+      `/api/presenca_escalacao/limparHoje`,
+      `/api/presenca_escalacao/reset`,
+      `/api/presenca_escalacao/clear`,
+    ];
+  }
+
+  function urlsEscalar1T(){
+    return [
+      `/api/presenca_escalacao/escalar_1t`,
+      `/api/presenca_escalacao/escalar1t`,
+      `/api/presenca_escalacao/escalar_1T`,
+      `/api/presenca_escalacao/escalar_primeiro_tempo`,
+    ];
+  }
+
+  function urlsDesfazer1T(){
+    return [
+      `/api/presenca_escalacao/desfazer_1t`,
+      `/api/presenca_escalacao/desfazer1t`,
+      `/api/presenca_escalacao/desfazer_1T`,
+      `/api/presenca_escalacao/desfazer_primeiro_tempo`,
+    ];
+  }
+
+  function urlsEscalar2T(){
+    return [
+      `/api/presenca_escalacao/escalar_2t`,
+      `/api/presenca_escalacao/escalar2t`,
+      `/api/presenca_escalacao/escalar_2T`,
+      `/api/presenca_escalacao/escalar_segundo_tempo`,
+    ];
+  }
+
+  function urlsDesfazer2T(){
+    return [
+      `/api/presenca_escalacao/desfazer_2t`,
+      `/api/presenca_escalacao/desfazer2t`,
+      `/api/presenca_escalacao/desfazer_2T`,
+      `/api/presenca_escalacao/desfazer_segundo_tempo`,
+    ];
+  }
+
+  function urlsSalvar(){
+    return [
+      `/api/presenca_escalacao/salvar`,
+      `/api/presenca_escalacao/save`,
+      `/api/presenca_escalacao/salvar_escalacao`,
+    ];
+  }
+
+  function urlsSaiu(){
+    return [
+      `/api/presenca_escalacao/saiu`,
+      `/api/presenca_escalacao/toggle_saiu`,
+      `/api/presenca_escalacao/marcar_saiu`,
+    ];
+  }
+
+  // =======================
+  // Estado / render
+  // =======================
   let STATE = null;
 
-  // =====================
-  // Fetch robusto (tenta várias rotas)
-  // =====================
-  async function tryPost(url, body){
-    const r = await fetch(url, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body||{})
-    });
-    const ct = (r.headers.get('content-type')||'').toLowerCase();
-    let j = null;
-    if(ct.includes('application/json')){
-      j = await r.json().catch(()=>null);
-    } else {
-      // se vier HTML, é erro (ex: 404/502)
-      const t = await r.text().catch(()=>'');
-      j = { ok:false, error: (t||'Resposta não-JSON'), http:r.status };
-    }
-    return { r, j };
-  }
-
-  const PATHS = {
-    CHEGOU: [
-      '/api/presenca_escalacao/chegou',
-      '/api/presenca_escalacao/chegou_agora',
-      '/api/presenca_escalacao/add',
-      '/api/presenca_escalacao/presente'
-    ],
-    LIMPAR: [
-      '/api/presenca_escalacao/limpar',
-      '/api/presenca_escalacao/limpar_hoje',
-      '/api/presenca_escalacao/clear'
-    ],
-    TOGGLE_NAO_JOGA: [
-      '/api/presenca_escalacao/toggle_nao_joga',
-      '/api/presenca_escalacao/nao_joga',
-      '/api/presenca_escalacao/toggle_nao_vai_jogar'
-    ],
-    REMOVER: [
-      '/api/presenca_escalacao/remover',
-      '/api/presenca_escalacao/excluir',
-      '/api/presenca_escalacao/delete'
-    ],
-    ESCALAR_1T: [
-      '/api/presenca_escalacao/escalar_1t',
-      '/api/presenca_escalacao/escalar1t',
-      '/api/presenca_escalacao/escalar_primeiro_tempo'
-    ],
-    DESFAZER_1T: [
-      '/api/presenca_escalacao/desfazer_1t',
-      '/api/presenca_escalacao/desfazer1t'
-    ],
-    ESCALAR_2T: [
-      '/api/presenca_escalacao/escalar_2t',
-      '/api/presenca_escalacao/escalar2t',
-      '/api/presenca_escalacao/escalar_segundo_tempo'
-    ],
-    DESFAZER_2T: [
-      '/api/presenca_escalacao/desfazer_2t',
-      '/api/presenca_escalacao/desfazer2t'
-    ],
-    SAIU_1T: [
-      '/api/presenca_escalacao/saiu_1t',
-      '/api/presenca_escalacao/saiu1t'
-    ],
-    SAIU_2T: [
-      '/api/presenca_escalacao/saiu_2t',
-      '/api/presenca_escalacao/saiu2t'
-    ],
-  };
-
-  const FOUND = {}; // cache da rota que funcionou
-
-  async function postFirstOk(key, body){
-    const list = FOUND[key] ? [FOUND[key]] : (PATHS[key] || []);
-    let last = null;
-    for(const u of list){
-      const { r, j } = await tryPost(u, body);
-      last = { r, j, u };
-      if(r.ok && j && j.ok){
-        FOUND[key] = u;
-        return { ok:true, u, j };
+  function pick(obj, paths, fallback){
+    for(const p of paths){
+      const parts = p.split(".");
+      let cur = obj;
+      let ok = true;
+      for(const k of parts){
+        if(cur && Object.prototype.hasOwnProperty.call(cur, k)) cur = cur[k];
+        else { ok=false; break; }
       }
+      if(ok && cur != null) return cur;
     }
-    // se não tinha cache, tenta todas
-    if(!FOUND[key]){
-      for(const u of (PATHS[key] || [])){
-        const { r, j } = await tryPost(u, body);
-        last = { r, j, u };
-        if(r.ok && j && j.ok){
-          FOUND[key] = u;
-          return { ok:true, u, j };
-        }
-      }
-    }
-    const msg = (last && last.j && last.j.error) ? last.j.error : 'Falha na ação';
-    const http = (last && last.r) ? last.r.status : '';
-    return { ok:false, error:`${msg}${http?` (HTTP ${http})`:''}` };
+    return fallback;
   }
 
-  async function apiGetJSON(url){
-    const r = await fetch(url, { method:'GET' });
-    const ct = (r.headers.get('content-type')||'').toLowerCase();
-    if(!ct.includes('application/json')){
-      const t = await r.text().catch(()=>'');
-      return { ok:false, error:'Resposta não-JSON', http:r.status, raw:t };
-    }
-    const j = await r.json().catch(()=>null);
-    return { ok: !!(j && j.ok), j, http:r.status, error: j && j.error ? j.error : null };
-  }
-
-  // =====================
-  // Carregar state
-  // =====================
-  function getDomingoISO(){
-    const v = (inpData && inpData.value) ? String(inpData.value).trim() : '';
-    return v || proximoDomingoISO();
-  }
-
-  async function carregarState(){
-    const data_domingo = getDomingoISO();
-    const now_local = nowLocalStr();
-
-    statusJogEl.textContent = 'Carregando...';
-    statusPresEl.textContent = `Carregando... (domingo: ${ymdToBr(data_domingo)})`;
-
-    const url = `/api/presenca_escalacao/state?data_domingo=${encodeURIComponent(data_domingo)}&now_local=${encodeURIComponent(now_local)}`;
-    const res = await apiGetJSON(url);
-    if(!res.ok){
-      statusPresEl.innerHTML = `<span class="err">ERRO state:</span> ${res.error || ('HTTP '+res.http)}`;
-      return false;
-    }
-
-    STATE = res.j;
-    renderAll();
-    statusJogEl.innerHTML = `<span class="ok">Base carregada.</span>`;
-    statusPresEl.innerHTML = `<span class="ok">OK:</span> lista carregada (Domingo: ${ymdToBr(data_domingo)})`;
-    return true;
-  }
-
-  // =====================
-  // Render
-  // =====================
-  function safeUpper(s){ return String(s||'').toUpperCase(); }
-
-  function renderJogadores(){
-    const jogadores = (STATE && Array.isArray(STATE.jogadores)) ? STATE.jogadores : [];
-    totalJogEl.textContent = jogadores.length;
-
-    tbodyJog.innerHTML = '';
-    jogadores.forEach(j => {
-      const tr = document.createElement('tr');
-
-      const tdId = document.createElement('td');
-      tdId.textContent = j.id != null ? String(j.id) : '';
-      const tdAp = document.createElement('td');
-      tdAp.textContent = safeUpper(j.apelido || j.nome || '');
-
-      const tdBtn = document.createElement('td');
-      const b = document.createElement('button');
-      b.className = 'btn-chegou';
-      b.textContent = 'CHEGOU AGORA';
-      b.onclick = async () => {
-        b.disabled = true;
-        const ok = await postFirstOk('CHEGOU', { jogador_id: j.id, data_domingo: getDomingoISO(), now_local: nowLocalStr() });
-        b.disabled = false;
-        if(!ok.ok){
-          alert('ERRO: ' + ok.error);
-          return;
-        }
-        await carregarState();
-      };
-      tdBtn.appendChild(b);
-
-      tr.appendChild(tdId);
-      tr.appendChild(tdAp);
-      tr.appendChild(tdBtn);
-      tbodyJog.appendChild(tr);
-    });
-  }
-
-  function isNaoJoga(p){
-    if(p == null) return false;
-    if(p.nao_joga === true) return true;
-    if(p.naoVaiJogar === true) return true;
-    if(String(p.obs||'').toUpperCase().includes('NÃO VAI')) return true;
-    if(String(p.status||'').toUpperCase().includes('NAO_JOGA')) return true;
-    return false;
-  }
-
-  function renderPresenca(){
-    // tenta achar lista por nomes diferentes, para não quebrar
-    const presenca =
-      (STATE && Array.isArray(STATE.presenca_hoje)) ? STATE.presenca_hoje :
-      (STATE && Array.isArray(STATE.presencaHoje)) ? STATE.presencaHoje :
-      (STATE && Array.isArray(STATE.presenca)) ? STATE.presenca :
-      (STATE && Array.isArray(STATE.itens)) ? STATE.itens :
-      [];
-
-    presentesHojeEl.textContent = presenca.length;
-
-    tbodyPres.innerHTML = '';
-    presenca.forEach(p => {
-      const tr = document.createElement('tr');
-      if(isNaoJoga(p)) tr.classList.add('riscado');
-
-      const tdId = document.createElement('td');
-      tdId.textContent = p.id != null ? String(p.id) : '';
-
-      const tdOr = document.createElement('td');
-      tdOr.textContent = p.ordem != null ? String(p.ordem) : (p.idx != null ? String(p.idx) : '');
-
-      const tdAp = document.createElement('td');
-      tdAp.textContent = safeUpper(p.apelido || p.nome || '');
-
-      const tdHr = document.createElement('td');
-      tdHr.textContent = safeUpper(p.hora || p.hhmm || '');
-
-      const tdObs = document.createElement('td');
-      tdObs.textContent = safeUpper(p.obs || p.info || '');
-
-      const tdNao = document.createElement('td');
-      const bNao = document.createElement('button');
-      bNao.className = 'btn-nao-joga';
-      bNao.textContent = 'NÃO VAI JOGAR';
-      bNao.onclick = async () => {
-        bNao.disabled = true;
-        const ok = await postFirstOk('TOGGLE_NAO_JOGA', { id: p.id, jogador_id: p.id, data_domingo: getDomingoISO() });
-        bNao.disabled = false;
-        if(!ok.ok){
-          alert('Erro ao alterar NÃO VAI JOGAR. ' + ok.error);
-          return;
-        }
-        await carregarState();
-      };
-      tdNao.appendChild(bNao);
-
-      const tdEx = document.createElement('td');
-      const bEx = document.createElement('button');
-      bEx.className = 'btn-excluir';
-      bEx.textContent = 'EXCLUIR';
-      bEx.onclick = async () => {
-        bEx.disabled = true;
-        const ok = await postFirstOk('REMOVER', { id: p.id, jogador_id: p.id, data_domingo: getDomingoISO() });
-        bEx.disabled = false;
-        if(!ok.ok){
-          alert('Erro ao excluir. ' + ok.error);
-          return;
-        }
-        await carregarState();
-      };
-      tdEx.appendChild(bEx);
-
-      tr.appendChild(tdId);
-      tr.appendChild(tdOr);
-      tr.appendChild(tdAp);
-      tr.appendChild(tdHr);
-      tr.appendChild(tdObs);
-      tr.appendChild(tdNao);
-      tr.appendChild(tdEx);
-
-      tbodyPres.appendChild(tr);
-    });
-  }
-
-  function renderEscalacao(){
-    const e1 =
-      (STATE && Array.isArray(STATE.escalacao_1t)) ? STATE.escalacao_1t :
-      (STATE && Array.isArray(STATE.escalacao1t)) ? STATE.escalacao1t :
-      (STATE && STATE.escalacao && Array.isArray(STATE.escalacao['1t'])) ? STATE.escalacao['1t'] :
-      [];
-
-    const e2 =
-      (STATE && Array.isArray(STATE.escalacao_2t)) ? STATE.escalacao_2t :
-      (STATE && Array.isArray(STATE.escalacao2t)) ? STATE.escalacao2t :
-      (STATE && STATE.escalacao && Array.isArray(STATE.escalacao['2t'])) ? STATE.escalacao['2t'] :
-      [];
-
-    function fillRows(tbody, arr, tempoKey){
-      tbody.innerHTML = '';
-      const rows = Array.isArray(arr) && arr.length ? arr : [];
-      const max = Math.max(10, rows.length || 10);
-
-      for(let i=0;i<max;i++){
-        const it = rows[i] || {};
-        const tr = document.createElement('tr');
-
-        const pos = document.createElement('td');
-        pos.textContent = it.pos != null ? String(it.pos) : String(i+1);
-
-        const a = document.createElement('td');
-        a.textContent = safeUpper(it.amarelo || it.time_amarelo || it.a || '');
-
-        const saiuA = document.createElement('td');
-        const bA = document.createElement('button');
-        bA.className = 'btn-mini btn-primario';
-        bA.textContent = 'SAIU';
-        bA.onclick = async () => {
-          bA.disabled = true;
-          const key = (tempoKey==='1t') ? 'SAIU_1T' : 'SAIU_2T';
-          const ok = await postFirstOk(key, { pos: (it.pos!=null?it.pos:(i+1)), lado:'amarelo', data_domingo:getDomingoISO() });
-          bA.disabled = false;
-          if(!ok.ok){ alert('ERRO SAIU: ' + ok.error); return; }
-          await carregarState();
-        };
-        saiuA.appendChild(bA);
-
-        const z = document.createElement('td');
-        z.textContent = safeUpper(it.azul || it.time_azul || it.z || '');
-
-        const saiuZ = document.createElement('td');
-        const bZ = document.createElement('button');
-        bZ.className = 'btn-mini btn-primario';
-        bZ.textContent = 'SAIU';
-        bZ.onclick = async () => {
-          bZ.disabled = true;
-          const key = (tempoKey==='1t') ? 'SAIU_1T' : 'SAIU_2T';
-          const ok = await postFirstOk(key, { pos: (it.pos!=null?it.pos:(i+1)), lado:'azul', data_domingo:getDomingoISO() });
-          bZ.disabled = false;
-          if(!ok.ok){ alert('ERRO SAIU: ' + ok.error); return; }
-          await carregarState();
-        };
-        saiuZ.appendChild(bZ);
-
-        tr.appendChild(pos);
-        tr.appendChild(a);
-        tr.appendChild(saiuA);
-        tr.appendChild(z);     // <<< AZUL na coluna correta (corrige seu item 6)
-        tr.appendChild(saiuZ);
-
-        tbody.appendChild(tr);
-      }
-    }
-
-    fillRows(tbody1t, e1, '1t');
-    fillRows(tbody2t, e2, '2t');
-  }
-
-  function renderAll(){
-    renderJogadores();
-    renderPresenca();
-    renderEscalacao();
-  }
-
-  // =====================
-  // Ações topo
-  // =====================
-  btnLimpar.onclick = async () => {
-    btnLimpar.disabled = true;
-    const ok = await postFirstOk('LIMPAR', { data_domingo:getDomingoISO() });
-    btnLimpar.disabled = false;
-    if(!ok.ok){ alert('ERRO: ' + ok.error); return; }
-    await carregarState();
-  };
-
-  btnEsc1.onclick = async () => {
-    btnEsc1.disabled = true;
-    const ok = await postFirstOk('ESCALAR_1T', { data_domingo:getDomingoISO(), now_local: nowLocalStr() });
-    btnEsc1.disabled = false;
-    if(!ok.ok){ alert('ERRO ao escalar 1º tempo: ' + ok.error); return; }
-    await carregarState();
-  };
-
-  btnDes1.onclick = async () => {
-    btnDes1.disabled = true;
-    const ok = await postFirstOk('DESFAZER_1T', { data_domingo:getDomingoISO() });
-    btnDes1.disabled = false;
-    if(!ok.ok){ alert('ERRO ao desfazer 1º tempo: ' + ok.error); return; }
-    await carregarState();
-  };
-
-  btnEsc2.onclick = async () => {
-    btnEsc2.disabled = true;
-    const ok = await postFirstOk('ESCALAR_2T', { data_domingo:getDomingoISO(), now_local: nowLocalStr() });
-    btnEsc2.disabled = false;
-    if(!ok.ok){ alert('ERRO ao escalar 2º tempo: ' + ok.error); return; }
-    await carregarState();
-  };
-
-  btnDes2.onclick = async () => {
-    btnDes2.disabled = true;
-    const ok = await postFirstOk('DESFAZER_2T', { data_domingo:getDomingoISO() });
-    btnDes2.disabled = false;
-    if(!ok.ok){ alert('ERRO ao desfazer 2º tempo: ' + ok.error); return; }
-    await carregarState();
-  };
-
-  // =====================
-  // PDF por DADOS (arquivo) - PRESENÇA HOJE
-  // =====================
-  function pdfName(prefix){
-    const d = ymdToBr(getDomingoISO()).replaceAll('/','-');
-    return `${prefix}_${d}.pdf`;
-  }
-
-  function ensureJsPdf(){
-    return window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.prototype;
-  }
-
-  btnPdfPres.onclick = () => {
-    if(!ensureJsPdf()){
-      alert('PDF: biblioteca não carregou (jsPDF).');
-      return;
-    }
-    const doc = new window.jspdf.jsPDF({ orientation:'p', unit:'pt', format:'a4' });
-
-    const dom = getDomingoISO();
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(12);
-    doc.text(`TESOURA - PRESENÇA HOJE (DOMINGO ${ymdToBr(dom)})`, 40, 40);
-
-    const presenca =
-      (STATE && Array.isArray(STATE.presenca_hoje)) ? STATE.presenca_hoje :
-      (STATE && Array.isArray(STATE.presencaHoje)) ? STATE.presencaHoje :
-      (STATE && Array.isArray(STATE.presenca)) ? STATE.presenca :
-      (STATE && Array.isArray(STATE.itens)) ? STATE.itens :
-      [];
-
-    const head = [['ID','ORDEM','APELIDO','HORA','OBS','NÃO VAI JOGAR']];
-    const body = presenca.map(p => ([
-      p.id!=null?String(p.id):'',
-      p.ordem!=null?String(p.ordem):(p.idx!=null?String(p.idx):''),
-      String(p.apelido||p.nome||'').toUpperCase(),
-      String(p.hora||p.hhmm||'').toUpperCase(),
-      String(p.obs||p.info||'').toUpperCase(),
-      (isNaoJoga(p) ? 'SIM' : '')
-    ]));
-
-    doc.autoTable({
-      head, body,
-      startY: 60,
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [255,127,39], textColor: 0 },
-      margin: { left: 40, right: 40 },
-      didDrawPage: (data) => {
-        doc.setFontSize(8);
-        doc.text(`Gerado: ${nowLocalStr()}`, 40, 820);
-      }
-    });
-
-    doc.save(pdfName('TESOURA-PRESENCA'));
-  };
-
-  // PDF 1T / 2T por DADOS (também arquivo)
-  function escArray(tempo){
-    const keyA = (tempo==='1t') ? ['escalacao_1t','escalacao1t'] : ['escalacao_2t','escalacao2t'];
-    for(const k of keyA){
-      if(STATE && Array.isArray(STATE[k])) return STATE[k];
-    }
-    if(STATE && STATE.escalacao && Array.isArray(STATE.escalacao[tempo])) return STATE.escalacao[tempo];
+  function normArray(x){
+    if(Array.isArray(x)) return x;
+    if(x && Array.isArray(x.items)) return x.items;
     return [];
   }
 
-  function baixarPdfEsc(tempo){
-    if(!ensureJsPdf()){
-      alert('PDF: biblioteca não carregou (jsPDF).');
-      return;
-    }
-    const doc = new window.jspdf.jsPDF({ orientation:'l', unit:'pt', format:'a4' });
-    const dom = getDomingoISO();
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(12);
-    doc.text(`TESOURA - ESCALAÇÃO ${tempo.toUpperCase()} (DOMINGO ${ymdToBr(dom)})`, 40, 40);
+  function getDataDomingo(){
+    return dataJogo.value || proximoDomingoISO();
+  }
 
-    const arr = escArray(tempo);
-    const head = [['POS','AMARELO','AZUL']];
-    const body = (arr && arr.length ? arr : new Array(10).fill(null).map((_,i)=>({pos:i+1}))).map(it => ([
-      it.pos!=null?String(it.pos):'',
-      String(it.amarelo||it.time_amarelo||it.a||'').toUpperCase(),
-      String(it.azul||it.time_azul||it.z||'').toUpperCase(),
-    ]));
+  function presencaKeyNaoJoga(item){
+    return !!(item?.nao_vai_jogar || item?.nao_joga || item?.naoVaiJogar || item?.naoJoga);
+  }
 
-    doc.autoTable({
-      head, body,
-      startY: 60,
-      theme: 'grid',
-      styles: { fontSize: 10, cellPadding: 6 },
-      headStyles: { fillColor: [255,127,39], textColor: 0 },
-      margin: { left: 40, right: 40 },
-      didDrawPage: () => {
-        doc.setFontSize(8);
-        doc.text(`Gerado: ${nowLocalStr()}`, 40, 560);
-      }
+  function safeUpper(s){ return String(s||"").toUpperCase(); }
+
+  function render(){
+    const st = STATE || {};
+    const core = pick(st, ["data","state"], st);
+
+    const jogadores = normArray(pick(core, ["jogadores","players","lista_jogadores"], []));
+    const presenca  = normArray(pick(core, ["presenca","presencas","lista_presenca","hoje","presentes"], []));
+
+    const esc1 = normArray(pick(core, ["escalacao1t","escalacao_1t","esc_1t","escalacao.1t","escalacao.um"], []));
+    const esc2 = normArray(pick(core, ["escalacao2t","escalacao_2t","esc_2t","escalacao.2t","escalacao.dois"], []));
+
+    // players
+    tbodyJog.innerHTML = "";
+    jogadores.forEach(j => {
+      const tr = document.createElement("tr");
+
+      const id = j.id ?? j.ID ?? "";
+      const apelido = j.apelido ?? j.nome ?? j.NOME ?? "";
+
+      tr.innerHTML = `
+        <td>${id}</td>
+        <td style="text-align:left;padding-left:8px">${safeUpper(apelido)}</td>
+        <td><button class="btn-chegou" data-action="chegou" data-id="${id}">CHEGOU AGORA</button></td>
+      `;
+      tbodyJog.appendChild(tr);
+    });
+    totalJog.textContent = `TOTAL DE JOGADORES: ${jogadores.length}`;
+
+    // presenca
+    tbodyPres.innerHTML = "";
+    qtdPres.textContent = presenca.length;
+
+    presenca.forEach((p, idx) => {
+      const tr = document.createElement("tr");
+
+      const id = p.id ?? p.ID ?? "";
+      const ordem = p.ordem ?? p.ORDEM ?? (idx+1);
+      const apelido = p.apelido ?? p.nome ?? p.NOME ?? "";
+      const hora = p.hora ?? p.HORA ?? "";
+      const obs = p.obs ?? p.OBS ?? "";
+
+      const isNaoJoga = presencaKeyNaoJoga(p);
+
+      const apelidoCls = isNaoJoga ? "riscado" : "";
+      const btnNaoJogaTxt = isNaoJoga ? "NÃO VAI JOGAR ✓" : "NÃO VAI JOGAR";
+
+      tr.innerHTML = `
+        <td>${id}</td>
+        <td>${ordem}</td>
+        <td class="${apelidoCls}" style="text-align:left;padding-left:8px">${safeUpper(apelido)}</td>
+        <td>${safeUpper(hora)}</td>
+        <td>${safeUpper(obs)}</td>
+        <td>
+          <button class="btn-nao-joga" data-action="naojoga" data-id="${id}">${btnNaoJogaTxt}</button>
+        </td>
+        <td>
+          <button class="btn-excluir" data-action="excluir" data-id="${id}">EXCLUIR</button>
+        </td>
+      `;
+      tbodyPres.appendChild(tr);
     });
 
-    doc.save(pdfName(tempo==='1t' ? 'TESOURA-ESCALACAO-1T' : 'TESOURA-ESCALACAO-2T'));
+    // escalacao 1t
+    tbody1.innerHTML = "";
+    const rows1 = esc1.length ? esc1 : Array.from({length:10}).map((_,i)=>({pos:i+1}));
+    rows1.forEach((r, i) => {
+      const pos = r.pos ?? r.POS ?? (i+1);
+      const id = r.id ?? r.ID ?? "";
+      const am = r.amarelo ?? r.AMARELO ?? r.time_amarelo ?? "";
+      const az = r.azul ?? r.AZUL ?? r.time_azul ?? "";
+
+      const saiuAm = !!(r.saiu_amarelo || r.SAIU_AMARELO || r.saiuAmarelo);
+      const saiuAz = !!(r.saiu_azul || r.SAIU_AZUL || r.saiuAzul);
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${id}</td>
+        <td>${pos}</td>
+        <td class="${saiuAm ? "riscado":""}" style="text-align:left;padding-left:8px">${safeUpper(am)}</td>
+        <td><button class="btn-saiu" data-action="saiu" data-tempo="1t" data-lado="amarelo" data-pos="${pos}">SAIU</button></td>
+        <td class="${saiuAz ? "riscado":""}" style="text-align:left;padding-left:8px">${safeUpper(az)}</td>
+        <td><button class="btn-saiu" data-action="saiu" data-tempo="1t" data-lado="azul" data-pos="${pos}">SAIU</button></td>
+      `;
+      tbody1.appendChild(tr);
+    });
+
+    // escalacao 2t
+    tbody2.innerHTML = "";
+    const rows2 = esc2.length ? esc2 : Array.from({length:10}).map((_,i)=>({pos:i+1}));
+    rows2.forEach((r, i) => {
+      const pos = r.pos ?? r.POS ?? (i+1);
+      const id = r.id ?? r.ID ?? "";
+      const am = r.amarelo ?? r.AMARELO ?? r.time_amarelo ?? "";
+      const az = r.azul ?? r.AZUL ?? r.time_azul ?? "";
+
+      const saiuAm = !!(r.saiu_amarelo || r.SAIU_AMARELO || r.saiuAmarelo);
+      const saiuAz = !!(r.saiu_azul || r.SAIU_AZUL || r.saiuAzul);
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${id}</td>
+        <td>${pos}</td>
+        <td class="${saiuAm ? "riscado":""}" style="text-align:left;padding-left:8px">${safeUpper(am)}</td>
+        <td><button class="btn-saiu" data-action="saiu" data-tempo="2t" data-lado="amarelo" data-pos="${pos}">SAIU</button></td>
+        <td class="${saiuAz ? "riscado":""}" style="text-align:left;padding-left:8px">${safeUpper(az)}</td>
+        <td><button class="btn-saiu" data-action="saiu" data-tempo="2t" data-lado="azul" data-pos="${pos}">SAIU</button></td>
+      `;
+      tbody2.appendChild(tr);
+    });
   }
 
-  btnPdf1.onclick = () => baixarPdfEsc('1t');
-  btnPdf2.onclick = () => baixarPdfEsc('2t');
+  async function loadState(){
+    statusJog.textContent = "Carregando...";
+    statusPres.textContent = "Carregando...";
+    statusEsc.textContent = "Carregando...";
 
-  // =====================
-  // Relógios
-  // =====================
-  function tick(){
-    const hhmm = nowHHMM();
-    clock1t.textContent = hhmm;
-    clockG.textContent = hhmm;
+    const j = await getFirstOk(urlsState());
+    if(!j){
+      const d = getDataDomingo();
+      statusJog.textContent = "ERRO: /state não respondeu (ver backend).";
+      statusPres.textContent = `ERRO ao carregar (domingo: ${ymdToBr(d)}).`;
+      statusEsc.textContent = "";
+      return;
+    }
+
+    STATE = j;
+    statusJog.textContent = "Base carregada.";
+    statusPres.textContent = `Lista carregada. (Domingo: ${getDataDomingo()})`;
+    statusEsc.textContent = "";
+    render();
   }
-  setInterval(tick, 1000);
-  tick();
 
-  // =====================
-  // Init
-  // =====================
-  inpData.value = proximoDomingoISO();
-  inpData.onchange = () => carregarState();
+  // =======================
+  // Ações
+  // =======================
+  async function actionChegou(id){
+    const body = { id, data_domingo:getDataDomingo(), now_local:nowLocalStr() };
+    const ok = await postFirstOk(urlsChegouAgora(), body);
+    if(!ok) alert("Erro ao marcar CHEGOU AGORA.");
+    await loadState();
+  }
 
-  (async () => {
-    await carregarState();
-  })();
+  async function actionNaoJoga(id){
+    const body = { id, data_domingo:getDataDomingo(), now_local:nowLocalStr() };
+    const ok = await postFirstOk(urlsToggleNaoJoga(), body);
+    if(!ok) alert("Erro ao alterar NÃO VAI JOGAR.");
+    await loadState();
+  }
+
+  async function actionExcluir(id){
+    const body = { id, data_domingo:getDataDomingo(), now_local:nowLocalStr() };
+    const ok = await postFirstOk(urlsExcluir(), body);
+    if(!ok) alert("Erro ao excluir.");
+    await loadState();
+  }
+
+  async function actionLimparHoje(){
+    if(!confirm("Tem certeza que deseja LIMPAR HOJE?")) return;
+    const body = { data_domingo:getDataDomingo(), now_local:nowLocalStr() };
+    const ok = await postFirstOk(urlsLimparHoje(), body);
+    if(!ok) alert("Erro ao limpar hoje.");
+    await loadState();
+  }
+
+  async function actionEscalar1T(){
+    const body = { data_domingo:getDataDomingo(), now_local:nowLocalStr() };
+    const ok = await postFirstOk(urlsEscalar1T(), body);
+    if(!ok) alert("Erro ao escalar 1º tempo.");
+    await loadState();
+  }
+
+  async function actionDesfazer1T(){
+    if(!confirm("Desfazer 1º tempo?")) return;
+    const body = { data_domingo:getDataDomingo(), now_local:nowLocalStr() };
+    const ok = await postFirstOk(urlsDesfazer1T(), body);
+    if(!ok) alert("Erro ao desfazer 1º tempo.");
+    await loadState();
+  }
+
+  async function actionEscalar2T(){
+    const body = { data_domingo:getDataDomingo(), now_local:nowLocalStr() };
+    const ok = await postFirstOk(urlsEscalar2T(), body);
+    if(!ok) alert("Erro ao escalar 2º tempo.");
+    await loadState();
+  }
+
+  async function actionDesfazer2T(){
+    if(!confirm("Desfazer 2º tempo?")) return;
+    const body = { data_domingo:getDataDomingo(), now_local:nowLocalStr() };
+    const ok = await postFirstOk(urlsDesfazer2T(), body);
+    if(!ok) alert("Erro ao desfazer 2º tempo.");
+    await loadState();
+  }
+
+  async function actionSalvar(){
+    const body = { data_domingo:getDataDomingo(), now_local:nowLocalStr() };
+    const ok = await postFirstOk(urlsSalvar(), body);
+    if(!ok) alert("Erro ao salvar.");
+    await loadState();
+  }
+
+  async function actionSaiu(tempo, lado, pos){
+    const body = { tempo, lado, pos:Number(pos), data_domingo:getDataDomingo(), now_local:nowLocalStr() };
+    const ok = await postFirstOk(urlsSaiu(), body);
+    if(!ok) alert("Erro ao marcar SAIU.");
+    await loadState();
+  }
+
+  // =======================
+  // PDF (PRESENÇA = arquivo texto, não print)
+  // =======================
+  function pdfFileName(prefix){
+    const d = getDataDomingo(); // yyyy-mm-dd
+    const br = ymdToBr(d).replaceAll("/","-");
+    return `${prefix}_${br}.pdf`;
+  }
+
+  function getPresencaRowsForPdf(){
+    const st = STATE || {};
+    const core = pick(st, ["data","state"], st);
+    const presenca  = normArray(pick(core, ["presenca","presencas","lista_presenca","hoje","presentes"], []));
+    return presenca.map((p, idx) => {
+      const id = p.id ?? p.ID ?? "";
+      const ordem = p.ordem ?? p.ORDEM ?? (idx+1);
+      const apelido = (p.apelido ?? p.nome ?? p.NOME ?? "").toString().toUpperCase();
+      const hora = (p.hora ?? p.HORA ?? "").toString().toUpperCase();
+      const obs = (p.obs ?? p.OBS ?? "").toString().toUpperCase();
+      const nao = presencaKeyNaoJoga(p) ? "SIM" : "";
+      return [String(id), String(ordem), apelido, hora, obs, nao];
+    });
+  }
+
+  function baixarPdfPresencaArquivo(){
+    // jsPDF UMD fica em window.jspdf.jsPDF :contentReference[oaicite:0]{index=0}
+    if(!window.jspdf || !window.jspdf.jsPDF){
+      alert("PDF: jsPDF não carregou.");
+      return;
+    }
+    const doc = new window.jspdf.jsPDF({orientation:"landscape", unit:"pt", format:"a4"});
+    const title = `PRESENÇA - DOMINGO ${ymdToBr(getDataDomingo())}`;
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(14);
+    doc.text(title, 40, 34);
+
+    const rows = getPresencaRowsForPdf();
+
+    // autoTable plugin adiciona doc.autoTable() :contentReference[oaicite:1]{index=1}
+    if(typeof doc.autoTable !== "function"){
+      alert("PDF: autoTable não carregou.");
+      return;
+    }
+
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(10);
+
+    doc.autoTable({
+      startY: 50,
+      head: [["ID","ORDEM","APELIDO","HORA","OBS","NÃO VAI JOGAR"]],
+      body: rows,
+      styles: { font: "helvetica", fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [249,115,22], textColor: [15,23,42] },
+      alternateRowStyles: { fillColor: [11,17,32] },
+      theme: "grid",
+      margin: { left: 40, right: 40 }
+    });
+
+    doc.save(pdfFileName("TESOURA-PRESENCA"));
+  }
+
+  // =======================
+  // PDF (ESCALAÇÃO 1T/2T = print ok)
+  // =======================
+  async function baixarPdfEscalacao(tipo){
+    if(typeof html2pdf === "undefined"){
+      alert("PDF: html2pdf não carregou.");
+      return;
+    }
+
+    document.body.classList.add("pdf-mode");
+    document.body.classList.remove("pdf-1t","pdf-2t");
+    if(tipo === "1t") document.body.classList.add("pdf-1t");
+    if(tipo === "2t") document.body.classList.add("pdf-2t");
+
+    // espera layout “assentar”
+    await new Promise(r => setTimeout(r, 50));
+
+    try{
+      const opt = {
+        margin: 8,
+        filename: pdfFileName(tipo === "1t" ? "TESOURA-ESCALACAO-1T" : "TESOURA-ESCALACAO-2T"),
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
+      };
+      await html2pdf().set(opt).from(document.body).save();
+    } catch(e){
+      alert("ERRO PDF: " + (e && (e.message||e) ? (e.message||e) : "falha"));
+    } finally{
+      document.body.classList.remove("pdf-mode","pdf-1t","pdf-2t");
+    }
+  }
+
+  // =======================
+  // Eventos (delegação)
+  // =======================
+  document.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("button");
+    if(!btn) return;
+
+    const action = btn.getAttribute("data-action");
+    if(!action) return;
+
+    const id = btn.getAttribute("data-id");
+
+    try{
+      if(action === "chegou") return await actionChegou(id);
+      if(action === "naojoga") return await actionNaoJoga(id);
+      if(action === "excluir") return await actionExcluir(id);
+      if(action === "saiu") return await actionSaiu(btn.getAttribute("data-tempo"), btn.getAttribute("data-lado"), btn.getAttribute("data-pos"));
+    } catch(e){
+      console.error(e);
+      alert("Erro na ação. Veja o console.");
+    }
+  });
+
+  el("btn-limpar-hoje").onclick = actionLimparHoje;
+  el("btn-escalar-1t").onclick = actionEscalar1T;
+  el("btn-desfazer-1t").onclick = actionDesfazer1T;
+
+  el("btn-escalar-2t").onclick = actionEscalar2T;
+  el("btn-desfazer-2t").onclick = actionDesfazer2T;
+
+  el("btn-salvar").onclick = actionSalvar;
+
+  el("btn-pdf-presenca").onclick = baixarPdfPresencaArquivo;
+  el("btn-pdf-1t").onclick = () => baixarPdfEscalacao("1t");
+  el("btn-pdf-2t").onclick = () => baixarPdfEscalacao("2t");
+
+  // mudar data recarrega
+  dataJogo.addEventListener("change", () => loadState());
+
+  // init
+  loadState();
+})();
 </script>
 
 </body>
 </html>
-HTML
