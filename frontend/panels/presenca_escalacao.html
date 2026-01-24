@@ -1,211 +1,1249 @@
 <!doctype html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Presença / Escalação</title>
-
-  <link rel="stylesheet" href="../app/css/tokens.css" />
-  <link rel="stylesheet" href="../app/css/ui.css" />
-
+  <title>TESOURA - PRESENÇA / ESCALAÇÃO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    .wrap{ padding:14px; }
-    .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
-    button, select{
-      padding:10px 12px; border-radius:10px; border:1px solid var(--line);
-      background:rgba(255,255,255,.10); color:var(--text); cursor:pointer; font-weight:700;
+
+    body{margin:0;padding:0;font-family:Arial,sans-serif;background:#0f172a;color:#f9fafb;font-size:12px}
+    header{background:#020617;padding:12px 16px;text-align:center;font-weight:bold;letter-spacing:1px;text-transform:uppercase}
+    .container{max-width:1400px;margin:0 auto;padding:16px}
+    h2{margin:8px 0;color:#f97316;text-transform:uppercase}
+    .painel{background:#020617;border-radius:10px;padding:10px;box-shadow:0 2px 10px rgba(0,0,0,0.35);margin-bottom:14px;font-size:12px}
+    .linhas-topo{display:flex;gap:16px;margin-bottom:16px}
+    .col-50{flex:1;min-width:0}
+    button{
+      padding:6px 10px;
+      border-radius:6px;
+      border:none;
+      cursor:pointer;
+      font-weight:bold;
+      text-transform:uppercase;
+      font-size:11px;
+      line-height:1;
+      height:30px;
+      min-width:110px;
     }
-    select{ background:rgba(255,255,255,.06); }
-    h1{ margin:0 0 10px 0; color:var(--accent); }
-    .box{
-      margin-top:12px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
-      font-size:13px;
-      white-space:pre-wrap;
-      color:var(--text);
-      background: rgba(255,255,255,.04);
-      border:1px solid var(--line);
-      border-radius: 10px;
-      padding: 10px;
-      min-height: 220px;
+    .btn-primario{background:#22c55e;color:#022c22}
+    .btn-secundario{background:#0ea5e9;color:#0f172a}
+    .btn-perigo{background:#ef4444;color:#f9fafb}
+    .btn-neutro{background:#f97316;color:#0f172a}
+    .btn-chegou{background:#10b981;color:#022c22;min-width:120px}
+    .btn-sair{background:#f97316;color:#0f172a;min-width:70px;height:34px;border-radius:6px;font-size:11px}
+    .btn-nao-joga{background:#64748b;color:#e5e7eb;min-width:140px}
+    .btn-excluir{background:#ef4444;color:#f9fafb;min-width:90px}
+    /* Ajustes de escalação: manter 1º e 2º tempo com mesmo tamanho e evitar colunas estouradas */
+    .grid-escalacao table{table-layout:fixed;}
+    .grid-escalacao th,.grid-escalacao td{overflow:hidden;text-overflow:ellipsis;}
+    
+    .btn-saiu{min-width:56px !important;height:24px !important;font-size:10px !important;padding:0 8px !important;line-height:1 !important;background:#22c55e;color:#0b1220;border:1px solid rgba(34,197,94,0.6);border-radius:8px;cursor:pointer;}
+    .btn-saiu:hover{filter:brightness(1.05);}
+    .clock-box{font-size:12px;color:#cbd5e1;padding:6px 10px;border:1px solid rgba(148,163,184,0.25);border-radius:10px;background:rgba(15,23,42,0.35);}
+    /* alinhar as caixas superiores (aumenta a área rolável dos Jogadores) */
+    .linhas-topo .col-50:first-child .painel-scroll{max-height:420px;}
+table{width:100%;border-collapse:collapse;margin-top:8px;background:#020617;font-size:11px}
+    th,td{border:1px solid #334155;padding:2px 4px;text-align:center;text-transform:uppercase;white-space:nowrap;font-size:11px}
+    th{background:#111827;color:#f97316;position:sticky;top:0;z-index:1}
+    tr:nth-child(even){background:#0b1120}
+    tr:nth-child(odd){background:#020617}
+    .status-info{font-size:12px;margin-top:6px;color:#cbd5e1}
+    .painel-scroll{overflow-y:auto;max-height:320px}
+    .riscado{text-decoration:line-through;opacity:.55}
+    .obs-pago{color:#22c55e;font-weight:bold}
+    .obs-inad{color:#ef4444;font-weight:bold}
+    .grid-escalacao{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width: 980px){.grid-escalacao{grid-template-columns:1fr}}
+    .col-escalacao{flex:1;min-width:0}
+    .totais{font-weight:bold;text-align:right;margin-top:6px;font-size:12px;color:#cbd5e1}
+    .msg-salvar{font-size:13px;font-weight:bold;color:#22c55e;margin:6px 0 0;text-align:right;min-height:18px}
+    .legenda{font-size:11px;margin-top:10px;color:#cbd5e1}
+    .t-amarelo{color:#facc15;font-weight:bold}
+    .t-azul{color:#38bdf8;font-weight:bold}
+    @media print{
+      body{margin:0;padding:0;font-family:Arial,sans-serif;background:#0f172a;color:#f9fafb;font-size:12px}
+      header,.no-print{display:none !important}
+      .painel{background:#020617;border-radius:10px;padding:10px;box-shadow:0 2px 10px rgba(0,0,0,0.35);margin-bottom:14px;font-size:12px}
+      table{width:100%;border-collapse:collapse;margin-top:8px;background:#020617;font-size:11px}
+      th{background:#eee;color:#000}
+      tr:nth-child(even),tr:nth-child(odd){background:#fff}
+      .t-amarelo,.t-azul,.obs-pago,.obs-inad{color:#000 !important}
+      .riscado{opacity:1}
+      .page-break{page-break-before:always}
+    
+/* PRINT_SEPARADO_R5 */
+/* Não imprimir lista de jogadores */
+.linhas-topo .col-50:first-child{display:none !important;}
+.linhas-topo{display:block !important;}
+.linhas-topo .col-50{width:100% !important; display:block !important;}
+/* Presença ocupa a página(s) inicial(is) */
+.painel-presenca{page-break-inside: avoid;}
+/* Escalação em página separada */
+.grid-escalacao{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width: 980px){.grid-escalacao{grid-template-columns:1fr}}
+.grid-escalacao table{page-break-inside: avoid;}
+/* Remover sombras/efeitos para imprimir limpo */
+*{box-shadow:none !important; text-shadow:none !important;}
+body{background:#fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;}
+}
+  
+    /* === AJUSTES PADRÃO (compacto) === */
+    body{margin:0;padding:0;font-family:Arial,sans-serif;background:#0f172a;color:#f9fafb;font-size:12px}
+    .painel{background:#020617;border-radius:10px;padding:10px;box-shadow:0 2px 10px rgba(0,0,0,0.35);margin-bottom:14px;font-size:12px}
+    .painel-scroll{overflow-y:auto;max-height:320px}
+    table{width:100%;border-collapse:collapse;margin-top:8px;background:#020617;font-size:11px}
+    th, td { padding: 2px 3px; }
+    button{
+      padding:6px 10px;
+      border-radius:6px;
+      border:none;
+      cursor:pointer;
+      font-weight:bold;
+      text-transform:uppercase;
+      font-size:11px;
+      line-height:1;
+      height:30px;
+      min-width:110px;
     }
+    .btn-chegou { width:120px; }
+    .btn-nao-joga { width:140px; }
+    .btn-excluir { width:90px; }
+    .btn-sair { width:70px; }
+
+    /* ESCALAÇÃO: 1º e 2º tempo com MESMO tamanho */
+    .grid-escalacao{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width: 980px){.grid-escalacao{grid-template-columns:1fr}}
+    .col-escalacao { display: flex; flex-direction: column; }
+    .col-escalacao table{width:100%;border-collapse:collapse;margin-top:8px;background:#020617;font-size:11px}
+
+    /* TÍTULOS AMARELO/AZUL SEM FUNDO */
+    th { background: #f97316; color: #0f172a; } /* padrão do projeto */
+    .grid-escalacao th { background: transparent; }
+    /* cabeçalhos específicos da escalação */
+    .th-amarelo { color: #facc15 !important; font-weight: 900; }
+    .th-azul { color: #38bdf8 !important; font-weight: 900; }
+
+    /* === IMPRESSÃO / PDF (não quebrar um painel em 2 folhas) === */
+    @media print {
+      body{margin:0;padding:0;font-family:Arial,sans-serif;background:#0f172a;color:#f9fafb;font-size:12px}
+      header { color: #000000 !important; background: #ffffff !important; }
+      .painel{background:#020617;border-radius:10px;padding:10px;box-shadow:0 2px 10px rgba(0,0,0,0.35);margin-bottom:14px;font-size:12px}
+      .linhas-topo { page-break-after: always; break-after: page; }
+      button, .btn-primario, .btn-secundario, .btn-perigo, .btn-neutro { display: none !important; }
+      .painel-scroll{overflow-y:auto;max-height:320px}
+      th, td { border: 1px solid #444 !important; }
+    }
+
+  
+/* R2 - Ajustes de layout (padrão do projeto) */
+table th, table td { padding: 6px 8px !important; font-size: 12px !important; }
+button{
+      padding:6px 10px;
+      border-radius:6px;
+      border:none;
+      cursor:pointer;
+      font-weight:bold;
+      text-transform:uppercase;
+      font-size:11px;
+      line-height:1;
+      height:30px;
+      min-width:110px;
+    }
+#listaJogadores, #listaPresentes { max-height: 320px !important; overflow: auto !important; }
+#painelEscalacao .col { flex: 1 1 0 !important; }
+#painelEscalacao .col table{width:100%;border-collapse:collapse;margin-top:8px;background:#020617;font-size:11px}
+#painelEscalacao .col { min-height: 420px !important; }
+#painelEscalacao .col .tblwrap { max-height: 360px !important; overflow: auto !important; }
+
+/* Impressão: 1 página (evitar quebrar o painel no meio) */
+@media print {
+  body{margin:0;padding:0;font-family:Arial,sans-serif;background:#0f172a;color:#f9fafb;font-size:12px}
+  .container, .card, #painelEscalacao { page-break-inside: avoid; break-inside: avoid; }
+  .btn, button{
+      padding:6px 10px;
+      border-radius:6px;
+      border:none;
+      cursor:pointer;
+      font-weight:bold;
+      text-transform:uppercase;
+      font-size:11px;
+      line-height:1;
+      height:30px;
+      min-width:110px;
+    }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* === R3: layout compacto (linhas e botões menores) === */
+header{padding:10px 14px}
+.container{padding:12px;max-width:1400px}
+.painel{background:#020617;border-radius:10px;padding:10px;box-shadow:0 2px 10px rgba(0,0,0,0.35);margin-bottom:14px;font-size:12px}
+.status-info{font-size:11px}
+label{font-size:10px}
+button{
+      padding:6px 10px;
+      border-radius:6px;
+      border:none;
+      cursor:pointer;
+      font-weight:bold;
+      text-transform:uppercase;
+      font-size:11px;
+      line-height:1;
+      height:30px;
+      min-width:110px;
+    }
+table{width:100%;border-collapse:collapse;margin-top:8px;background:#020617;font-size:11px}
+th,td{border:1px solid #334155;padding:2px 4px;text-align:center;text-transform:uppercase;white-space:nowrap;font-size:11px}
+.painel-scroll{overflow-y:auto;max-height:320px}
+.btn-chegou{width:120px}
+.btn-nao-joga{width:140px}
+.btn-excluir{width:90px}
+.btn-sair{width:70px}
+
+
+/* LAYOUT_ALTURA_R5 */
+.grid-escalacao{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width: 980px){.grid-escalacao{grid-template-columns:1fr}}
+.col-escalacao{display:flex; flex-direction:column;}
+.col-escalacao table{flex:1; width:100%;}
+/* Padroniza altura de linha nas tabelas da escalação */
+.grid-escalacao table td, .grid-escalacao table th{padding-top:6px; padding-bottom:6px; line-height:1.1;}
+
+  .subinfo{margin-top:6px;font-size:13px;color:#cfd9ff;opacity:.95}
+  .cutinfo{margin-left:12px;font-size:13px;color:#cfd9ff;opacity:.95}
+  .legend-inline{margin-top:10px;font-size:12px;color:#cfd9ff;opacity:.95;line-height:1.3}
+
+
+.bloco-regras{margin-top:14px;background:rgba(0,0,0,0.15);border:1px solid rgba(255,127,39,0.35);border-radius:12px;padding:12px}
+.bloco-regras .col-regras h3{margin:0 0 8px 0;color:#ffb35a;font-size:14px}
+.bloco-regras .col-regras ul{margin:0 0 8px 18px;padding:0;font-size:12px;line-height:1.35}
+.bloco-regras{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.bloco-regras .obs-legenda{grid-column:1 / -1;font-size:12px;margin-top:2px}
+.pago-ok{color:#22c55e;font-weight:bold}
+.pago-bad{color:#ef4444;font-weight:bold}
+@media (max-width: 980px){.bloco-regras{grid-template-columns:1fr}}
+.painel-1t, .painel-2t{min-width:0}
+
+
   </style>
+
+  <!-- PDF real (arquivo) -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+
+
+<style>
+/* PDF_MODE_R1 */
+body.pdf-mode button, body.pdf-mode .no-print{ display:none !important; }
+
+/* PRESENÇA: não mostrar lista de jogadores nem escalação */
+body.pdf-presenca .linhas-topo .col-50:first-child{ display:none !important; }
+body.pdf-presenca #painelEscalacao, body.pdf-presenca .grid-escalacao{ display:none !important; }
+
+/* 1T: só a escalação do 1º tempo */
+body.pdf-1t .linhas-topo{ display:none !important; }
+body.pdf-1t .grid-escalacao .col-escalacao:nth-child(2){ display:none !important; }
+body.pdf-1t .grid-escalacao{ grid-template-columns:1fr !important; }
+
+/* 2T: só a escalação do 2º tempo */
+body.pdf-2t .linhas-topo{ display:none !important; }
+body.pdf-2t .grid-escalacao .col-escalacao:nth-child(1){ display:none !important; }
+body.pdf-2t .grid-escalacao{ grid-template-columns:1fr !important; }
+</style>
+
 </head>
-
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>PRESENÇA / ESCALAÇÃO (V6)</h1>
+  <header>TESOURA - PRESENÇA / ESCALAÇÃO</header>
 
-      <div class="row">
-        <select id="histSel">
-          <option value="">HISTÓRICO (selecione)</option>
-        </select>
-        <button id="btnHistAtualizar">ATUALIZAR HISTÓRICO</button>
-        <button id="btnHistCarregar">CARREGAR SELECIONADO</button>
-        <button id="btnPdf">BAIXAR PDF (ARQUIVO)</button>
-      </div>
-
-      <div id="status" style="margin-top:10px;color:var(--muted)"></div>
-      <div id="conteudo" class="box"></div>
-    </div>
+  <div class="no-print" style="text-align:right; padding:6px 16px 0 16px;">
   </div>
 
-  <script>
-    const statusEl = document.getElementById("status");
-    const conteudoEl = document.getElementById("conteudo");
-    const histSel = document.getElementById("histSel");
+  <div class="container">
 
-    function pad2(n){ return String(n).padStart(2,"0"); }
-    function ymd(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+    <div class="linhas-topo">
+      <div class="col-50">
+        <div class="painel">
+          <h2>Jogadores (todos)</h2>
+          <div class="status-info">Clique em <b>CHEGOU AGORA</b> quando o jogador chegar.</div>
+          <div id="status-jogadores" class="status-info"></div>
 
-    function ymdToBr(s){
-      s = String(s || "").trim();
-      if(!s) return "";
-      if(s.includes("/")) return s;
-      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if(m) return `${m[3]}/${m[2]}/${m[1]}`;
-      return s;
-    }
+          <div class="painel-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:70px">ID</th>
+                  <th>APELIDO</th>
+                  <th style="width:170px">CHEGOU AGORA</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-jogadores-todos"></tbody>
+            </table>
+          </div>
 
-    function proximoDomingoISO(){
-      const d = new Date();
-      const dow = d.getDay(); // 0=domingo
-      const add = (7 - dow) % 7;
-      d.setDate(d.getDate() + add);
-      return ymd(d);
-    }
+          <div id="status-total-jogadores" class="status-info"></div>
+        </div>
+      </div>
 
-    function nowLocalStr(){
-      const d = new Date();
-      return `${ymd(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-    }
+      <div class="col-50">
+        <div class="painel">
+          <h2>Presença hoje</h2>
 
-    async function apiGetJSON(url){
-      const r = await fetch(url, { method:"GET" });
-      const j = await r.json().catch(() => null);
-      return { r, j };
-    }
+          <div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
+            <div id="info-presentes" class="status-info"></div>
+            <div id="info-data-jogo" class="status-info"></div>
+          </div>
 
-    function setConteudo(obj){
-      conteudoEl.textContent = JSON.stringify(obj, null, 2);
-    }
+          <div class="no-print" style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="btn-limpar-presentes" class="btn-perigo">Limpar hoje</button>
+<button id="btn-escalar-1t" class="btn-primario">Escalar 1º tempo</button>
+<button id="btn-desfazer-1t" class="btn-neutro">Desfazer 1º tempo</button>
+<button id="btn-baixar-presenca" class="btn-neutro">Baixar PDF</button>
+</div>
 
-    async function carregarState(){
-      const data_domingo = proximoDomingoISO();
-      const now_local = nowLocalStr();
-      statusEl.textContent = `Carregando... (domingo: ${ymdToBr(data_domingo)})`;
+          <div id="status-presentes" class="status-info"></div>
 
-      const url = `/api/presenca_escalacao/state?data_domingo=${encodeURIComponent(data_domingo)}&now_local=${encodeURIComponent(now_local)}`;
-      const { r, j } = await apiGetJSON(url);
+          <div class="painel-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:70px">ID</th>
+                  <th style="width:70px">ORDEM</th>
+                  <th>APELIDO</th>
+                  <th style="width:110px">HORA</th>
+                  <th style="width:110px">OBS</th>
+                  <th style="width:170px">NÃO VAI JOGAR</th>
+                  <th style="width:120px">EXCLUIR</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-presentes-hoje"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
 
-      if(!j || !j.ok){
-        statusEl.textContent = "ERRO no /state: " + (j?.error || `HTTP ${r.status}`);
-        return false;
-      }
+    <div class="painel">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+        <h2 style="margin:0;">Escalação do jogo</h2>
+        <div class="no-print" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <div id="msg-salvar" class="msg-salvar"></div>
+          <div class="clock-box">Hora agora: <span id="clock-hhmm">--:--</span></div>
+          <button id="btn-escalar-2t" class="btn-primario">Escalar 2º tempo</button>
+          <button id="btn-desfazer-2t" class="btn-neutro">Desfazer 2º tempo</button>
+          <button id="btn-baixar-1t" class="btn-neutro">Baixar PDF 1º tempo</button>
+          <button id="btn-baixar-2t" class="btn-neutro">Baixar PDF 2º tempo</button>
+          <button id="btn-salvar-jogo" class="btn-neutro">Salvar</button>
+        </div>
+      </div>
 
-      setConteudo(j);
-      statusEl.textContent = `OK: state carregado (domingo: ${ymdToBr(data_domingo)})`;
-      return true;
-    }
+      <div class="grid-escalacao">
+        <div class="col-escalacao">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+           <div class="t-amarelo" style="font-size:13px">1º TEMPO — JOGO DAS 06:40 ÀS 07:40</div> 
+            <div class="status-info">Botão <b>SAIU</b> risca o nome.</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:70px">ID</th>
+                <th style="width:60px">POS</th>
+                <th class="t-amarelo">AMARELO</th>
+                <th style="width:60px">SAIU</th>
+                <th class="t-azul">AZUL</th>
+                <th style="width:60px">SAIU</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-1t"></tbody>
+          </table>
+          <div class="totais" id="totais-1t">TOTAL PONTOS: 0 x 0</div>
+</div>
 
-    async function atualizarHistorico(){
-      statusEl.textContent = "Atualizando histórico...";
-      const { r, j } = await apiGetJSON("/api/presenca_escalacao/historico");
+        <div class="col-escalacao">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="t-amarelo" style="font-size:13px">2º TEMPO — JOGO DAS 08:00 ÀS 09:00</div>
+             <div class="status-info">Prioridade: quem não jogou.</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:70px">ID</th>
+                <th style="width:60px">POS</th>
+                <th class="t-amarelo">AMARELO</th>
+                <th class="t-azul">AZUL</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-2t"></tbody>
+          </table>
+          <div class="totais" id="totais-2t">TOTAL PONTOS: 0 x 0</div>
+        </div>
+      </div>
 
-      if(!j || !j.ok){
-        statusEl.textContent = "Histórico indisponível. Carregando STATE...";
-        await carregarState();
-        return;
-      }
+      <div class="legenda">
+        <b>OBS:</b>
+C (compareceu e não jogou) | F (faltou) | 1 (jogou 1º) | 2 (jogou 2º) | 1-2 (jogou os dois) |
+<span class="obs-pago">P (verde) pagou</span> |
+<span class="obs-inad">P (vermelho) não pagou</span>
+      </div>
+    </div>
 
-      histSel.innerHTML = `<option value="">HISTÓRICO (selecione)</option>`;
-      (j.items || []).forEach(it => {
-        const opt = document.createElement("option");
-        opt.value = it.ref;
-        opt.textContent = it.ref;
-        histSel.appendChild(opt);
-      });
+  </div>
 
-      statusEl.textContent = `OK: histórico atualizado (${(j.items||[]).length})`;
-    }
+  
+  
+<script>
+/*
+  TESOURA V6 — PRESENÇA / ESCALAÇÃO
+  - SEM banco externo
+  - Usa apenas API local (server.js):
+      GET  /api/presenca_escalacao/state?data_domingo=YYYY-MM-DD&now_local=ISO
+      POST /api/presenca_escalacao/chegou
+      POST /api/presenca_escalacao/toggle_nao_joga
+      POST /api/presenca_escalacao/toggle_saiu
+      POST /api/presenca_escalacao/remover
+      POST /api/presenca_escalacao/limpar
+      POST /api/presenca_escalacao/escalar
+      POST /api/presenca_escalacao/desfazer
+      POST /api/presenca_escalacao/salvar
+*/
 
-    async function carregarDoHistorico(){
-      const ref = String(histSel.value || "").trim();
-      if(!ref){
-        statusEl.textContent = "Nenhum item selecionado. Carregando STATE...";
-        await carregarState();
-        return;
-      }
+(() => {
+  const API = "/api/presenca_escalacao";
 
-      statusEl.textContent = `Carregando histórico: ${ref} ...`;
-      const url = `/api/presenca_escalacao/carregar?ref=${encodeURIComponent(ref)}`;
-      const { r, j } = await apiGetJSON(url);
+  // ===== DOM =====
+  const statusJogadoresEl = document.getElementById("status-jogadores");
+  const statusTotalJogadoresEl = document.getElementById("status-total-jogadores");
+  const tbodyJogadoresTodos = document.getElementById("tbody-jogadores-todos");
 
-      if(!j || !j.ok){
-        statusEl.textContent = "Não deu para carregar histórico. Carregando STATE...";
-        await carregarState();
-        return;
-      }
+  const infoDataJogoEl = document.getElementById("info-data-jogo");
+  const infoPresentesEl = document.getElementById("info-presentes");
+  const statusPresentesEl = document.getElementById("status-presentes");
+  const tbodyPresentesHoje = document.getElementById("tbody-presentes-hoje");
 
-      setConteudo(j.data ?? j);
-      statusEl.textContent = `OK: histórico carregado (${ref})`;
-    }
+  const btnLimparPresentes = document.getElementById("btn-limpar-presentes");
+  const btnEscalar1T = document.getElementById("btn-escalar-1t");
+  const btnDesfazer1T = document.getElementById("btn-desfazer-1t");
+  const btnEscalar2T = document.getElementById("btn-escalar-2t");
+  const btnDesfazer2T = document.getElementById("btn-desfazer-2t");
 
-    function pdfFileName(){
-      const dataISO = proximoDomingoISO();
-      const dataBR = ymdToBr(dataISO).replaceAll("/", "-");
-      return `PRESENCA_ESCALACAO_${dataBR}.pdf`;
-    }
+  const tbody1T = document.getElementById("tbody-1t");
+  const tbody2T = document.getElementById("tbody-2t");
+  const totais1T = document.getElementById("totais-1t");
+  const totais2T = document.getElementById("totais-2t");
 
-    async function baixarPdfArquivoReal(){
-      const dataISO = proximoDomingoISO();
-      const titulo = `PRESENÇA / ESCALAÇÃO (V6) - DOMINGO ${ymdToBr(dataISO)}`;
+  const btnSalvar = document.getElementById("btn-salvar-jogo");
+  const msgSalvar = document.getElementById("msg-salvar");
 
-      const html = `
-        <html><head><meta charset="utf-8"></head>
-        <body style="font-family:Arial,sans-serif; padding:14px;">
-          <div style="font-weight:800; font-size:14px; margin-bottom:10px;">${titulo}</div>
-          <pre style="white-space:pre-wrap; word-break:break-word; font-size:10px; font-family:Menlo,Consolas,monospace;">${(conteudoEl.textContent||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")}</pre>
-        </body></html>
-      `;
+  const btnBaixarPresenca = document.getElementById("btn-baixar-presenca");
+  const btnBaixar1T = document.getElementById("btn-baixar-1t");
+  const btnBaixar2T = document.getElementById("btn-baixar-2t");
 
-      try{
-        const r = await fetch("/api/pdf/render", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ html, filename: pdfFileName() })
-        });
+  // ===== STATE =====
+  let dataDomingoISO = null; // YYYY-MM-DD
+  let state = {
+    jogadores: [],
+    presencas: [],
+    escalacao1: [],
+    escalacao2: [],
+    pagoMap: {}
+  };
 
-        if(!r.ok){
-          const j = await r.json().catch(()=>null);
-          alert("ERRO PDF: " + (j && j.error ? j.error : ("HTTP " + r.status)));
+  // ===== HELPERS =====
+  function nowLocalIso() {
+    // ISO local com offset (evita diferença de hora por UTC)
+    const d = new Date();
+    const pad = (n)=>String(n).padStart(2,"0");
+    const off = -d.getTimezoneOffset();
+    const sign = off>=0 ? "+" : "-";
+    const oh = pad(Math.floor(Math.abs(off)/60));
+    const om = pad(Math.abs(off)%60);
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sign}${oh}:${om}`;
+  } // usado para regras internas
+  function nowHHMM() { return new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",hour12:false}); }
+  function fmtHHMM(s){ s=String(s||""); return s.length>=5 ? s.slice(0,5) : s; }
+  function startClock(){
+    const el=document.getElementById("clock-hhmm");
+    if(!el) return;
+    const tick=()=>{ el.textContent = nowHHMM(); };
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  function ymdToBr(iso) {
+    if (!iso || iso.length < 10) return "";
+    const [y,m,d] = iso.slice(0,10).split("-");
+    return `${d}/${m}/${y}`;
+  }
+  function brToYmd(br) {
+    const s = String(br || "").trim();
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!m) return null;
+    const dd = Number(m[1]), mm = Number(m[2]), yy = Number(m[3]);
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+    const iso = `${String(yy).padStart(4,"0")}-${String(mm).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;
+    // valida data real
+    const dt = new Date(iso + "T00:00:00");
+    if (Number.isNaN(dt.getTime())) return null;
+    if (dt.getFullYear() !== yy || (dt.getMonth()+1) !== mm || dt.getDate() !== dd) return null;
+    return iso;
+  }
+
+  function proximoDomingoISO() {
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    const day = d.getDay(); // 0 domingo
+    const add = (7 - day) % 7;
+    d.setDate(d.getDate() + add);
+    return d.toISOString().slice(0,10);
+  }
+
+  async function apiGetState() {
+    const url = `${API}/state?data_domingo=${encodeURIComponent(dataDomingoISO)}&now_local=${encodeURIComponent(nowLocalIso())}`;
+    const r = await fetch(url, { cache: "no-store" });
+    const j = await r.json();
+    if (!j || !j.ok) throw new Error((j && j.error) || "Falha ao carregar state");
+    return j;
+  }
+
+  async function apiPost(path, body) {
+    const r = await fetch(`${API}/${path}`, {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(body || {})
+    });
+    const j = await r.json();
+    if (!j || !j.ok) throw new Error((j && j.error) || "Falha na operação");
+    return j;
+  }
+
+  function downloadText(filename, text, mime="text/plain") {
+    const blob = new Blob([text], { type: mime + ";charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function csvEscape(v) {
+    const s = String(v ?? "");
+    if (/[",\n;]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }
+
+  function getJogadorByApelido(ap) {
+    const k = String(ap || "").trim().toLowerCase();
+    return (state.jogadores || []).find(j => String(j.apelido||"").trim().toLowerCase() === k) || null;
+  }
+
+  function setText(el, t) { if (el) el.textContent = t; }
+
+  // ===== UI: DATA DO JOGO (domingo automático + editável) =====
+  function renderDataUI() {
+    if (!infoDataJogoEl) return;
+
+    infoDataJogoEl.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap;">
+        <div style="font-weight:700;">Data do jogo:</div>
+        <input id="inp-data-domingo" type="text" placeholder="dd/mm/aaaa" style="
+          width:110px; padding:6px 8px; border-radius:8px; border:1px solid rgba(255,255,255,.25);
+          background:rgba(0,0,0,.25); color:#fff; outline:none;
+        " />
+      </div>
+      <div style="margin-top:6px; text-align:right;">
+        <span style="display:inline-block; padding:4px 8px; border-radius:8px; background:#0b3b78; border:1px solid rgba(255,255,255,.15); font-weight:700;">
+          Horário da escalação: 06:20
+        </span>
+      </div>
+    `;
+
+    const inp = document.getElementById("inp-data-domingo");
+    if (inp) {
+      inp.value = ymdToBr(dataDomingoISO);
+      inp.addEventListener("change", async () => {
+        const iso = brToYmd(inp.value);
+        if (!iso) {
+          alert("Data inválida. Use dd/mm/aaaa.");
+          inp.value = ymdToBr(dataDomingoISO);
           return;
         }
+        // força domingo (regra do app)
+        const dt = new Date(iso + "T00:00:00");
+        if (dt.getDay() !== 0) {
+          alert("Regra do app: só domingo. Escolha um domingo.");
+          inp.value = ymdToBr(dataDomingoISO);
+          return;
+        }
+        dataDomingoISO = iso;
+        await refreshAll();
+      });
+    }
+  }
 
-        const blob = await r.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = pdfFileName();
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      } catch(e){
-        alert("ERRO PDF: " + (e && e.message ? e.message : e));
+  // ===== RENDER =====
+  function renderJogadoresTodos() {
+    const jogadores = state.jogadores || [];
+    setText(statusTotalJogadoresEl, `TOTAL DE JOGADORES: ${jogadores.length}`);
+
+    const presentesSet = new Set((state.presencas || []).map(p => String(p.apelido||"").trim().toLowerCase()));
+
+    tbodyJogadoresTodos.innerHTML = "";
+    for (const j of jogadores) {
+      const tr = document.createElement("tr");
+
+      const tdId = document.createElement("td");
+      tdId.textContent = String(j.id ?? "");
+      tr.appendChild(tdId);
+
+      const tdAp = document.createElement("td");
+      tdAp.textContent = String(j.apelido ?? "");
+      tr.appendChild(tdAp);
+
+      const tdBtn = document.createElement("td");
+      const b = document.createElement("button");
+      b.className = "btn-chegou";
+      b.textContent = "CHEGOU AGORA";
+      b.addEventListener("click", () => onChegouAgora(String(j.apelido||"").trim()));
+      // se já está presente, deixa clicável (para alert), mas visualmente pode indicar
+      if (presentesSet.has(String(j.apelido||"").trim().toLowerCase())) {
+        b.style.opacity = "0.85";
+        b.style.filter = "grayscale(0.2)";
+      }
+      tdBtn.appendChild(b);
+      tr.appendChild(tdBtn);
+
+      tbodyJogadoresTodos.appendChild(tr);
+    }
+  }
+
+  function renderPresencas() {
+    const presencas = state.presencas || [];
+    const escalados1 = new Set((state.escalacao1||[]).map(e => String(e.apelido||"").trim().toLowerCase()));
+    const escalados2 = new Set((state.escalacao2||[]).map(e => String(e.apelido||"").trim().toLowerCase()));
+
+    setText(infoPresentesEl, `Presentes hoje: ${presencas.length}`);
+    setText(statusPresentesEl, `Lista carregada. (Domingo: ${dataDomingoISO})`);
+
+    tbodyPresentesHoje.innerHTML = "";
+    presencas.forEach((p, idx) => {
+      const ap = String(p.apelido||"").trim();
+      const apKey = ap.toLowerCase();
+      const j = getJogadorByApelido(ap);
+
+      const tr = document.createElement("tr");
+
+      const tdId = document.createElement("td");
+      tdId.textContent = String((j && j.id) || "");
+      tr.appendChild(tdId);
+
+      const tdOrd = document.createElement("td");
+      tdOrd.textContent = String(idx + 1); // renumera na tela
+      tr.appendChild(tdOrd);
+
+      const tdAp = document.createElement("td");
+      tdAp.textContent = ap;
+      const tem2T = (escalados2 && escalados2.size>0);
+      const deveRiscar = (Number(p.nao_joga||0)===1) || (tem2T ? escalados2.has(apKey) : (escalados1.has(apKey) || Number(p.saiu||0)===1));
+      if (deveRiscar) tdAp.style.textDecoration = "line-through";
+      tr.appendChild(tdAp);
+
+      const tdHora = document.createElement("td");
+      tdHora.textContent = fmtHHMM(p.hora_chegada || "");
+      tr.appendChild(tdHora);
+
+      const tdObs = document.createElement("td");
+      tdObs.textContent = String(p.obs || "");
+      tr.appendChild(tdObs);
+
+      const tdNao = document.createElement("td");
+      const bNao = document.createElement("button");
+      bNao.className = "btn-nao-joga";
+      const nj = Number(p.nao_joga||0)===1;
+      bNao.textContent = nj ? "VAI JOGAR" : "NÃO VAI JOGAR";
+      bNao.addEventListener("click", () => toggleNaoJoga(ap, nj ? 0 : 1));
+      tdNao.appendChild(bNao);
+      tr.appendChild(tdNao);
+
+      const tdExc = document.createElement("td");
+      const bExc = document.createElement("button");
+      bExc.className = "btn-excluir";
+      bExc.textContent = "EXCLUIR";
+      bExc.addEventListener("click", () => removerPresenca(ap));
+      tdExc.appendChild(bExc);
+      tr.appendChild(tdExc);
+
+      tbodyPresentesHoje.appendChild(tr);
+    });
+  }
+
+  function buildEscalacaoMatrix(list) {
+    const m = {}; // pos -> { AMARELO: apelido, AZUL: apelido }
+    let maxPos = 10;
+    (list || []).forEach(e => {
+      const pos = Number(e.pos || 0);
+      if (pos > maxPos) maxPos = pos;
+      const time = String(e.time || "").toUpperCase();
+      if (!m[pos]) m[pos] = { AMARELO:"", AZUL:"" };
+      if (time === "AMARELO" || time === "AZUL") m[pos][time] = String(e.apelido||"").trim();
+    });
+    return { m, maxPos: Math.max(10, maxPos) };
+  }
+
+  function renderEscalacao(tempo) {
+    const is1 = tempo === "1T";
+    const list = is1 ? (state.escalacao1||[]) : (state.escalacao2||[]);
+    const tbody = is1 ? tbody1T : tbody2T;
+    const totaisEl = is1 ? totais1T : totais2T;
+
+    const { m, maxPos } = buildEscalacaoMatrix(list);
+
+    const presMap = new Map((state.presencas||[]).map(p => [String(p.apelido||"").trim().toLowerCase(), p]));
+
+    let totalA = 0, totalB = 0;
+
+    tbody.innerHTML = "";
+    for (let pos=1; pos<=maxPos; pos++) {
+      const tr = document.createElement("tr");
+
+      const apA = (m[pos] && m[pos].AMARELO) ? m[pos].AMARELO : "";
+      const apB = (m[pos] && m[pos].AZUL) ? m[pos].AZUL : "";
+
+      const jA = apA ? getJogadorByApelido(apA) : null;
+      const jB = apB ? getJogadorByApelido(apB) : null;
+
+      const pA = apA ? presMap.get(apA.toLowerCase()) : null;
+      const pB = apB ? presMap.get(apB.toLowerCase()) : null;
+
+      const saiuA = pA ? Number(pA.saiu||0)===1 : false;
+      const saiuB = pB ? Number(pB.saiu||0)===1 : false;
+
+      const ptsA = jA ? Number(jA.pontos||0) : 0;
+      const ptsB = jB ? Number(jB.pontos||0) : 0;
+      totalA += ptsA;
+      totalB += ptsB;
+
+      // ID
+      const tdId = document.createElement("td");
+      tdId.textContent = String((jA && jA.id) || (jB && jB.id) || "");
+      tr.appendChild(tdId);
+
+      // POS
+      const tdPos = document.createElement("td");
+      tdPos.textContent = String(pos);
+      tr.appendChild(tdPos);
+
+      // AMARELO
+      const tdA = document.createElement("td");
+      tdA.textContent = apA;
+      if (saiuA) tdA.style.textDecoration = "line-through";
+      tr.appendChild(tdA);
+
+      // SAIU A
+      const tdSaiuA = document.createElement("td");
+      const bSaiuA = document.createElement("button");
+      bSaiuA.className = "btn-saiu";
+      bSaiuA.textContent = "SAIU";
+      bSaiuA.disabled = !apA;
+      bSaiuA.style.opacity = apA ? "1" : "0.35";
+      bSaiuA.addEventListener("click", () => toggleSaiu(apA, saiuA ? 0 : 1));
+      tdSaiuA.appendChild(bSaiuA);
+      tr.appendChild(tdSaiuA);
+
+      // AZUL
+      const tdB = document.createElement("td");
+      tdB.textContent = apB;
+      if (saiuB) tdB.style.textDecoration = "line-through";
+      tr.appendChild(tdB);
+
+      // SAIU B
+      const tdSaiuB = document.createElement("td");
+      const bSaiuB = document.createElement("button");
+      bSaiuB.className = "btn-saiu";
+      bSaiuB.textContent = "SAIU";
+      bSaiuB.disabled = !apB;
+      bSaiuB.style.opacity = apB ? "1" : "0.35";
+      bSaiuB.addEventListener("click", () => toggleSaiu(apB, saiuB ? 0 : 1));
+      tdSaiuB.appendChild(bSaiuB);
+      tr.appendChild(tdSaiuB);
+
+      tbody.appendChild(tr);
+    }
+
+    if (totaisEl) totaisEl.textContent = `TOTAL PONTOS: ${totalA} x ${totalB}`;
+  }
+
+  // ===== ACTIONS =====
+  async function refreshAll() {
+    try {
+      setText(statusJogadoresEl, "Carregando base...");
+      const j = await apiGetState();
+      state.jogadores = j.jogadores || [];
+      state.presencas = j.presencas || [];
+      state.escalacao1 = j.escalacao1 || [];
+      state.escalacao2 = j.escalacao2 || [];
+      state.pagoMap = j.pagoMap || {};
+
+      renderDataUI();
+      renderJogadoresTodos();
+      renderPresencas();
+      renderEscalacao("1T");
+      renderEscalacao("2T");
+
+      setText(statusJogadoresEl, "Base carregada.");
+    } catch (e) {
+      console.error(e);
+      setText(statusJogadoresEl, "ERRO ao carregar (ver Console).");
+      alert("Erro ao carregar dados (ver Console).");
+    }
+  }
+
+  async function onChegouAgora(apelido) {
+    const ap = String(apelido||"").trim();
+    if (!ap) return;
+
+    const ja = (state.presencas || []).some(p => String(p.apelido||"").trim().toLowerCase() === ap.toLowerCase());
+    if (ja) {
+      alert("Este jogador já está na lista de presença hoje.");
+      return;
+    }
+
+    try {
+      await apiPost("chegou", { data_domingo: dataDomingoISO, apelido: ap, now_local: nowLocalIso(), hora_hhmm: nowHHMM() });
+      await refreshAll();
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao marcar presença.");
+    }
+  }
+
+  async function removerPresenca(apelido) {
+    const ap = String(apelido||"").trim();
+    if (!ap) return;
+    if (!confirm(`Excluir ${ap} da presença de hoje?`)) return;
+
+    try {
+      await apiPost("remover", { data_domingo: dataDomingoISO, apelido: ap });
+      await refreshAll();
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao excluir.");
+    }
+  }
+
+  async function toggleNaoJoga(apelido, v) {
+    const ap = String(apelido||"").trim();
+    try {
+      await apiPost("toggle_nao_joga", { data_domingo: dataDomingoISO, apelido: ap, nao_joga: v });
+      await refreshAll();
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao alterar NÃO VAI JOGAR.");
+    }
+  }
+
+  async function toggleSaiu(apelido, v) {
+    const ap = String(apelido||"").trim();
+    if (!ap) return;
+    try {
+      await apiPost("toggle_saiu", { data_domingo: dataDomingoISO, apelido: ap, saiu: v });
+      await refreshAll();
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao marcar SAIU.");
+    }
+  }
+
+  async function limparHoje() {
+    if (!confirm("Limpar TODA a presença e escalação deste domingo?")) return;
+    try {
+      await apiPost("limpar", { data_domingo: dataDomingoISO });
+      await refreshAll();
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao limpar.");
+    }
+  }
+
+  async function escalar(tempo) {
+    try {
+      await apiPost("escalar", { data_domingo: dataDomingoISO, tempo, now_local: nowLocalIso() });
+      await refreshAll();
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao escalar.");
+    }
+  }
+
+  async function desfazer(tempo) {
+    try {
+      await apiPost("desfazer", { data_domingo: dataDomingoISO, tempo });
+      await refreshAll();
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao desfazer.");
+    }
+  }
+
+  async function salvar() {
+    try {
+      msgSalvar.textContent = "Salvando...";
+      await apiPost("salvar", { data_domingo: dataDomingoISO });
+      msgSalvar.textContent = "Salvo.";
+      setTimeout(()=>{ msgSalvar.textContent = ""; }, 1200);
+    } catch (e) {
+      console.error(e);
+      msgSalvar.textContent = "";
+      alert("Erro ao salvar.");
+    }
+  }
+
+  // ===== DOWNLOADS (client-side) =====
+  function baixarPresenca() {
+    const pres = state.presencas || [];
+    const header = ["ORDEM","ID","APELIDO","HORA","OBS","NAO_VAI_JOGAR","SAIU"];
+    const rows = pres.map((p, idx) => {
+      const ap = String(p.apelido||"").trim();
+      const j = getJogadorByApelido(ap);
+      return [
+        idx+1,
+        (j && j.id) || "",
+        ap,
+        p.hora_chegada || "",
+        p.obs || "",
+        Number(p.nao_joga||0)===1 ? "SIM" : "NAO",
+        Number(p.saiu||0)===1 ? "SIM" : "NAO",
+      ];
+    });
+    const csv = [header, ...rows].map(r => r.map(csvEscape).join(";")).join("\n");
+    downloadText(`presenca_${dataDomingoISO}.csv`, csv, "text/csv");
+  }
+
+  function baixarEscalacao(tempo) {
+    const list = tempo === "1T" ? (state.escalacao1||[]) : (state.escalacao2||[]);
+    const header = ["TEMPO","TIME","POS","ID","APELIDO","PONTOS"];
+    const rows = list
+      .slice()
+      .sort((a,b) => (Number(a.pos||0)-Number(b.pos||0)) || String(a.time||"").localeCompare(String(b.time||"")))
+      .map(e => {
+        const ap = String(e.apelido||"").trim();
+        const j = getJogadorByApelido(ap);
+        return [
+          tempo,
+          String(e.time||""),
+          Number(e.pos||0),
+          (j && j.id) || "",
+          ap,
+          (j && j.pontos) || 0
+        ];
+      });
+    const csv = [header, ...rows].map(r => r.map(csvEscape).join(";")).join("\n");
+    downloadText(`escalacao_${tempo}_${dataDomingoISO}.csv`, csv, "text/csv");
+  }
+
+  // ===== WIRES =====
+  if (btnLimparPresentes) btnLimparPresentes.addEventListener("click", limparHoje);
+  if (btnEscalar1T) btnEscalar1T.addEventListener("click", ()=>escalar("1T"));
+  if (btnDesfazer1T) btnDesfazer1T.addEventListener("click", ()=>desfazer("1T"));
+  if (btnEscalar2T) btnEscalar2T.addEventListener("click", ()=>escalar("2T"));
+  if (btnDesfazer2T) btnDesfazer2T.addEventListener("click", ()=>desfazer("2T"));
+  if (btnSalvar) btnSalvar.addEventListener("click", salvar);
+
+  if (btnBaixarPresenca) btnBaixarPresenca.addEventListener("click", baixarPDFPresenca);
+  if (btnBaixar1T) btnBaixar1T.addEventListener("click", ()=>baixarPDFEscalacao("1T"));
+  if (btnBaixar2T) btnBaixar2T.addEventListener("click", ()=>baixarPDFEscalacao("2T"));
+
+  // ===== START =====
+  startClock();
+  dataDomingoISO = proximoDomingoISO();
+  renderDataUI();
+  refreshAll();
+
+})();
+
+  // ===== PDF (arquivo real) =====
+  function pdfFileName(prefix){
+    const d = (dataDomingoISO||"").replaceAll("-","_");
+    return `${prefix}_${d}.pdf`;
+  }
+
+  function baixarPDFPresenca(){
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      alert("PDF: biblioteca não carregou. Verifique a internet do aparelho.");
+      return;
+    }
+    const doc = new window.jspdf.jsPDF({orientation:"p", unit:"pt", format:"a4"});
+    doc.setFontSize(14);
+    doc.text(`PRESENÇA — ${ymdToBr(dataDomingoISO)}`, 40, 40);
+
+    const rows = (presencas||[]).map((p, i)=>[
+      String(i+1),
+      String(p.apelido||""),
+      fmtHHMM(p.hora_chegada||""),
+      String(p.obs||"")
+    ]);
+
+    doc.autoTable({
+      head: [["ORDEM","APELIDO","HORA","OBS"]],
+      body: rows,
+      startY: 60,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fontSize: 9 }
+    });
+
+    doc.save(pdfFileName("PRESENCA"));
+  }
+
+  function baixarPDFEscalacao(tempo){
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      alert("PDF: biblioteca não carregou. Verifique a internet do aparelho.");
+      return;
+    }
+    const doc = new window.jspdf.jsPDF({orientation:"p", unit:"pt", format:"a4"});
+    const titulo = (tempo==="1T") ? "ESCALAÇÃO 1º TEMPO" : "ESCALAÇÃO 2º TEMPO";
+    doc.setFontSize(14);
+    doc.text(`${titulo} — ${ymdToBr(dataDomingoISO)}`, 40, 40);
+
+    const esc = (tempo==="1T") ? (escalacao1||{amarelo:[],azul:[]}) : (escalacao2||{amarelo:[],azul:[]});
+
+    const max = Math.max((esc.amarelo||[]).length, (esc.azul||[]).length, 10);
+    const rows = [];
+    for(let i=0;i<max;i++){
+      rows.push([
+        String(i+1),
+        String((esc.amarelo[i]?.apelido||"")).toUpperCase(),
+        String((esc.azul[i]?.apelido||"")).toUpperCase()
+      ]);
+    }
+
+    doc.autoTable({
+      head: [["POS","AMARELO","AZUL"]],
+      body: rows,
+      startY: 60,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fontSize: 9 }
+    });
+
+    doc.save(pdfFileName(tempo==="1T" ? "ESCALACAO_1T" : "ESCALACAO_2T"));
+  }
+
+</script>
+
+
+<div class="bloco-regras">
+  <div class="col-regras">
+    <h3>Regras 1º tempo (escalação 06:20)</h3>
+    <ul>
+      <li>Se até 06:20 tiver menos de 20 presentes: o app espera até completar 20 (mesmo após 06:20).</li>
+      <li>Se até 06:20 tiver mais de 20 presentes: o app corta até ficar 20, na ordem: faltou no domingo anterior → inadimplente → maior nº de faltas. (desempate: ordem de chegada)</li>
+    </ul>
+  </div>
+  <div class="col-regras">
+    <h3>Regras 2º tempo (resumo)</h3>
+    <ul>
+      <li>Prioridade: quem está presente e não jogou no 1º tempo.</li>
+      <li>Para abrir vagas, sai primeiro: (1) quem marcou SAIU/SAIU, (2) faltou no domingo anterior, (3) jogou os dois tempos no domingo anterior, (4) maior nº de faltas, (5) mais novos.</li>
+      <li>Manter base dos times e distribuir quem entra equilibrando pontos e posições.</li>
+    </ul>
+  </div>
+  <div class="obs-legenda">
+    <strong>OBS:</strong>
+    C (compareceu e não jogou) | F (faltou) | 1 (jogou 1º) | 2 (jogou 2º) | 1-2 (jogou os dois) | 
+    <span class="pago-ok">P (verde) pagou</span> | <span class="pago-bad">P (vermelho) não pagou</span>
+  </div>
+</div>
+
+
+<!-- PDF_REAL_R6 -->
+<script src="html2pdf.bundle.min.js"></script>
+<script>
+(function(){
+  function pad2(n){ return String(n).padStart(2,"0"); }
+  function localISO(){
+    const d = new Date();
+    return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate());
+  }
+  function getDataISO(){
+    const sels = ["#dataDomingo","#data_jogo","#dataJogo",'input[type="date"]'];
+    for(const sel of sels){
+      const el = document.querySelector(sel);
+      const v = (el && (el.value || el.textContent || "")).trim();
+      if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    }
+    return localISO();
+  }
+
+  function buildClone(tipo){
+    const root = document.querySelector(".container") || document.body;
+    const wrap = document.createElement("div");
+    wrap.style.background = "#fff";
+    wrap.style.color = "#000";
+    wrap.style.padding = "10px";
+    wrap.style.fontFamily = "Arial, sans-serif";
+
+    const clone = root.cloneNode(true);
+
+    // remove botões / itens de tela
+    clone.querySelectorAll("button, .no-print").forEach(e=>e.remove());
+
+    // estilos “impressão limpa”
+    const st = document.createElement("style");
+    st.textContent = `
+      *{ box-shadow:none !important; text-shadow:none !important; }
+      body{ background:#fff !important; color:#000 !important; }
+      header{ display:none !important; }
+      h2{ color:#000 !important; }
+      table{ width:100% !important; border-collapse:collapse !important; font-size:11px !important; }
+      th,td{ border:1px solid #444 !important; padding:4px 6px !important; text-align:center !important; white-space:nowrap !important; }
+      th{ background:#eee !important; color:#000 !important; }
+      tr:nth-child(even), tr:nth-child(odd){ background:#fff !important; }
+      .riscado{ opacity:1 !important; text-decoration:line-through !important; }
+    `;
+    clone.prepend(st);
+
+    // remove lista de jogadores (esquerda)
+    const linhasTopo = clone.querySelector(".linhas-topo");
+    if(linhasTopo && linhasTopo.children && linhasTopo.children[0]){
+      linhasTopo.children[0].remove();
+    }
+
+    // separar o que vai no PDF
+    if(tipo === "presenca"){
+      // tira escalação
+      const pe = clone.querySelector("#painelEscalacao");
+      if(pe) pe.remove();
+      const ge = clone.querySelector(".grid-escalacao");
+      if(ge) ge.remove();
+    }else{
+      // tira topo (presença), deixa só escalação
+      if(linhasTopo) linhasTopo.remove();
+
+      const grid = clone.querySelector(".grid-escalacao");
+      if(grid && grid.children && grid.children.length >= 2){
+        if(tipo === "1T"){
+          grid.children[1].remove();
+        }else if(tipo === "2T"){
+          grid.children[0].remove();
+        }
       }
     }
 
-    document.getElementById("btnHistAtualizar").onclick = atualizarHistorico;
-    document.getElementById("btnHistCarregar").onclick = carregarDoHistorico;
-    document.getElementById("btnPdf").onclick = baixarPdfArquivoReal;
+    wrap.appendChild(clone);
+    return wrap;
+  }
 
-    (async () => {
-      await atualizarHistorico();
-      await carregarState();
-    })();
-  </script>
+  async function gerarPdf(tipo, btn){
+    try{
+      if(!window.html2pdf){
+        alert("ERRO: html2pdf não carregou.");
+        return;
+      }
+      if(btn){ btn.disabled = true; btn.style.opacity = "0.6"; }
+
+      const dataISO = getDataISO();
+      const nome =
+        (tipo==="presenca") ? `presenca_${dataISO}.pdf` :
+        (tipo==="1T") ? `escalacao_1T_${dataISO}.pdf` :
+        `escalacao_2T_${dataISO}.pdf`;
+
+      const tmp = document.createElement("div");
+      tmp.style.position = "fixed";
+      tmp.style.left = "-10000px";
+      tmp.style.top = "0";
+      tmp.style.width = "1200px";
+      tmp.style.background = "#fff";
+      tmp.appendChild(buildClone(tipo));
+      document.body.appendChild(tmp);
+
+      const opt = {
+        margin: 8,
+        filename: nome,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, backgroundColor: "#ffffff", useCORS: true },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+      };
+
+      await html2pdf().set(opt).from(tmp).save();
+      tmp.remove();
+    }catch(e){
+      alert("ERRO PDF: " + (e && (e.message||e) ? (e.message||e) : "falha"));
+    }finally{
+      if(btn){ btn.disabled = false; btn.style.opacity = "1"; }
+    }
+  }
+
+  // liga botões (mesmo que já tenham onclick, aqui sobrescreve)
+  const bP = document.getElementById("btn-baixar-presenca");
+  const b1 = document.getElementById("btn-baixar-1t");
+  const b2 = document.getElementById("btn-baixar-2t");
+
+  if(bP) bP.onclick = ()=>gerarPdf("presenca", bP);
+  if(b1) b1.onclick = ()=>gerarPdf("1T", b1);
+  if(b2) b2.onclick = ()=>gerarPdf("2T", b2);
+
+})();
+</script>
+
+
+<script>
+/* PDF_PATCH_R1 */
+(function(){
+  function strTrim(v){ return (v===undefined || v===null) ? "" : String(v).trim(); }
+  function isoHoje(){ return new Date().toISOString().slice(0,10); }
+
+  async function baixarPdf(tipo){
+    try{
+      if(typeof html2pdf === "undefined"){
+        alert("ERRO PDF: html2pdf não carregou.");
+        return;
+      }
+
+      // evita o erro do trim (fonte do seu print)
+      var dataISO = "";
+      try{
+        if(window.state && state.sunday) dataISO = strTrim(state.sunday);
+      }catch(e){}
+      if(!dataISO) dataISO = isoHoje();
+
+      // aplica modo visual para exportar só o que interessa
+      document.body.classList.add("pdf-mode");
+      document.body.classList.remove("pdf-presenca","pdf-1t","pdf-2t");
+      if(tipo==="presenca") document.body.classList.add("pdf-presenca");
+      if(tipo==="1t") document.body.classList.add("pdf-1t");
+      if(tipo==="2t") document.body.classList.add("pdf-2t");
+
+      var nome = "TESOURA-";
+      if(tipo==="presenca") nome += "PRESENCA-";
+      if(tipo==="1t") nome += "ESCALACAO-1T-";
+      if(tipo==="2t") nome += "ESCALACAO-2T-";
+      nome += dataISO + ".pdf";
+
+      var alvo = document.querySelector(".container") || document.body;
+
+      await html2pdf().set({
+        filename: nome,
+        margin: 6,
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
+      }).from(alvo).save();
+
+    }catch(e){
+      alert("ERRO PDF: " + (e && e.message ? e.message : e));
+    }finally{
+      document.body.classList.remove("pdf-mode","pdf-presenca","pdf-1t","pdf-2t");
+    }
+  }
+
+  // expõe e re-vincula os botões (garante que use a função nova)
+  window.baixarPdf = baixarPdf;
+  var b0 = document.getElementById("btn-baixar-presenca");
+  var b1 = document.getElementById("btn-baixar-1t");
+  var b2 = document.getElementById("btn-baixar-2t");
+  if(b0) b0.onclick = function(){ baixarPdf("presenca"); };
+  if(b1) b1.onclick = function(){ baixarPdf("1t"); };
+  if(b2) b2.onclick = function(){ baixarPdf("2t"); };
+})();
+</script>
+
 </body>
 </html>

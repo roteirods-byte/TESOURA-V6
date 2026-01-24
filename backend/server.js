@@ -6,7 +6,6 @@ const cors = require("cors");
 const Database = require("better-sqlite3");
 
 const { saveSnapshot, listSnapshots, loadSnapshot } = require("./modules/_core/archive");
-const { htmlToPdfBuffer } = require("./modules/_core/pdf");
 
 const app = express();
 app.disable("x-powered-by");
@@ -356,30 +355,6 @@ app.post("/api/presenca_escalacao/desfazer", (req, res) => {
     res.status(400).json({ ok: false, error: String(e.message || e) });
   }
 });
-
-
-
-// ===== PDF (ARQUIVO REAL GERADO NO SERVIDOR) =====
-app.post("/api/pdf/render", async (req, res) => {
-  try {
-    const b = req.body || {};
-    const html = str(b.html).trim();
-    let filename = str(b.filename).trim() || "arquivo.pdf";
-
-    if (!filename.toLowerCase().endswith(".pdf")) filename += ".pdf";
-    filename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-
-    if (!html) return res.status(400).json({ ok: false, error: "Faltou html" });
-
-    const buf = await htmlToPdfBuffer(html);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    return res.status(200).send(buf);
-  } catch (e) {
-    return res.status(400).json({ ok: false, error: String(e.message || e) });
-  }
-});
-
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
