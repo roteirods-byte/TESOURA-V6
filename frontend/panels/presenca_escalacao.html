@@ -31,6 +31,25 @@
       padding: 10px;
       min-height: 220px;
     }
+    .mini{
+      margin-top:8px;
+      font-size:12px;
+      color:var(--muted);
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .mini input{
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      width:160px;
+    }
+    .ok{ color:#22c55e; font-weight:700; }
+    .bad{ color:#ef4444; font-weight:700; }
   </style>
 </head>
 
@@ -38,6 +57,12 @@
   <div class="wrap">
     <div class="card">
       <h1>PRESENÇA / ESCALAÇÃO (V6)</h1>
+
+      <div class="mini">
+        <span>Domingo (AAAA-MM-DD):</span>
+        <input id="inpDomingo" type="text" placeholder="2026-01-25" />
+        <button id="btnRecarregar">RECARREGAR</button>
+      </div>
 
       <div class="row">
         <select id="histSel">
@@ -60,6 +85,7 @@
     const statusEl = document.getElementById("status");
     const conteudoEl = document.getElementById("conteudo");
     const histSel = document.getElementById("histSel");
+    const inpDomingo = document.getElementById("inpDomingo");
 
     function pad2(n){ return String(n).padStart(2,"0"); }
     function ymd(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
@@ -87,6 +113,12 @@
       return `${ymd(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
     }
 
+    function domingoSelecionado(){
+      const v = String(inpDomingo.value || "").trim();
+      if(v && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+      return proximoDomingoISO();
+    }
+
     async function apiGetJSON(url){
       const r = await fetch(url, { method:"GET" });
       const j = await r.json().catch(() => null);
@@ -97,22 +129,22 @@
       conteudoEl.textContent = JSON.stringify(obj, null, 2);
     }
 
-    // ====== FALLBACK: carrega STATE ======
+    // ====== STATE ======
     async function carregarState(){
-      const data_domingo = proximoDomingoISO();
+      const data_domingo = domingoSelecionado();
       const now_local = nowLocalStr();
-      statusEl.textContent = `Carregando... (domingo: ${ymdToBr(data_domingo)})`;
+      statusEl.innerHTML = `Carregando... (domingo: <b>${ymdToBr(data_domingo)}</b>)`;
 
       const url = `/api/presenca_escalacao/state?data_domingo=${encodeURIComponent(data_domingo)}&now_local=${encodeURIComponent(now_local)}`;
       const { r, j } = await apiGetJSON(url);
 
       if(!j || !j.ok){
-        statusEl.textContent = "ERRO no /state: " + (j?.error || `HTTP ${r.status}`);
+        statusEl.innerHTML = `<span class="bad">ERRO no /state:</span> ${(j && j.error) ? j.error : ("HTTP " + r.status)}`;
         return false;
       }
 
       setConteudo(j);
-      statusEl.textContent = `OK: state carregado (domingo: ${ymdToBr(data_domingo)})`;
+      statusEl.innerHTML = `<span class="ok">OK:</span> state carregado (domingo: <b>${ymdToBr(data_domingo)}</b>)`;
       return true;
     }
 
@@ -121,6 +153,7 @@
       statusEl.textContent = "Atualizando histórico...";
       const { r, j } = await apiGetJSON("/api/presenca_escalacao/historico");
 
+      // Se não existir, cai no state sem quebrar
       if(!j || !j.ok){
         statusEl.textContent = "Histórico indisponível. Carregando STATE...";
         await carregarState();
@@ -135,7 +168,7 @@
         histSel.appendChild(opt);
       });
 
-      statusEl.textContent = `OK: histórico atualizado (${(j.items||[]).length})`;
+      statusEl.innerHTML = `<span class="ok">OK:</span> histórico atualizado (${(j.items||[]).length})`;
     }
 
     async function carregarDoHistorico(){
@@ -157,11 +190,12 @@
       }
 
       setConteudo(j.data ?? j);
-      statusEl.textContent = `OK: histórico carregado (${ref})`;
+      statusEl.innerHTML = `<span class="ok">OK:</span> histórico carregado (${ref})`;
     }
 
+    // ====== PDF (ARQUIVO) ======
     function pdfFileName(){
-      const dataISO = proximoDomingoISO();
+      const dataISO = domingoSelecionado();
       const dataBR = ymdToBr(dataISO).replaceAll("/", "-");
       return `PRESENCA_ESCALACAO_${dataBR}.pdf`;
     }
@@ -172,10 +206,10 @@
         return;
       }
 
-      const dataISO = proximoDomingoISO();
+      const dataISO = domingoSelecionado();
       const titulo = `PRESENÇA / ESCALAÇÃO (V6) - DOMINGO ${ymdToBr(dataISO)}`;
 
-      // monta um “papel” limpo só para o PDF
+      // “papel” limpo só para o PDF
       const tmp = document.createElement("div");
       tmp.style.background = "#ffffff";
       tmp.style.color = "#000000";
@@ -197,7 +231,6 @@
 
       tmp.appendChild(h);
       tmp.appendChild(pre);
-
       document.body.appendChild(tmp);
 
       try{
@@ -214,11 +247,18 @@
       }
     }
 
+    // ====== BOTÕES ======
     document.getElementById("btnHistAtualizar").onclick = atualizarHistorico;
     document.getElementById("btnHistCarregar").onclick = carregarDoHistorico;
     document.getElementById("btnPdf").onclick = baixarPdfArquivoReal;
+    document.getElementById("btnRecarregar").onclick = async () => {
+      await atualizarHistorico();
+      await carregarState();
+    };
 
+    // Ao abrir
     (async () => {
+      inpDomingo.value = proximoDomingoISO();
       await atualizarHistorico();
       await carregarState();
     })();
