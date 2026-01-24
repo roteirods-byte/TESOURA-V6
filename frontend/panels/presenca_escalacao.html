@@ -1,1 +1,482 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>TESOURA - PRESENÇA / ESCALAÇÃO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{margin:0;padding:0;font-family:Arial,sans-serif;background:#0f172a;color:#f9fafb;font-size:12px}
+    header{background:#020617;padding:12px 16px;text-align:center;font-weight:bold;letter-spacing:1px;text-transform:uppercase}
+    .container{max-width:1400px;margin:0 auto;padding:16px}
+    h2{margin:8px 0;color:#f97316;text-transform:uppercase}
+    .painel{background:#020617;border-radius:10px;padding:10px;box-shadow:0 2px 10px rgba(0,0,0,0.35);margin-bottom:14px;font-size:12px}
+    .linhas-topo{display:flex;gap:16px;margin-bottom:16px}
+    .col-50{flex:1;min-width:0}
+    .painel-scroll{overflow-y:auto;max-height:320px}
+    .linhas-topo .col-50:first-child .painel-scroll{max-height:420px;}
+
+    table{width:100%;border-collapse:collapse;margin-top:8px;background:#020617;font-size:11px}
+    th,td{border:1px solid #334155;padding:2px 4px;text-align:center;text-transform:uppercase;white-space:nowrap;font-size:11px}
+    th{background:#111827;color:#f97316;position:sticky;top:0;z-index:1}
+    tr:nth-child(even){background:#0b1120}
+    tr:nth-child(odd){background:#020617}
+
+    button{
+      padding:6px 10px;border-radius:6px;border:none;cursor:pointer;
+      font-weight:bold;text-transform:uppercase;font-size:11px;line-height:1;height:30px;min-width:110px
+    }
+    .btn-primario{background:#22c55e;color:#022c22}
+    .btn-secundario{background:#0ea5e9;color:#0f172a}
+    .btn-perigo{background:#ef4444;color:#f9fafb}
+    .btn-neutro{background:#f97316;color:#0f172a}
+    .btn-chegou{background:#10b981;color:#022c22;min-width:120px}
+    .btn-nao-joga{background:#64748b;color:#e5e7eb;min-width:140px}
+    .btn-excluir{background:#ef4444;color:#f9fafb;min-width:90px}
+    .btn-sair{background:#f97316;color:#0f172a;min-width:70px;height:34px;border-radius:6px;font-size:11px}
+    .btn-saiu{min-width:56px !important;height:24px !important;font-size:10px !important;padding:0 8px !important;line-height:1 !important;background:#22c55e;color:#0b1220;border:1px solid rgba(34,197,94,0.6);border-radius:8px;cursor:pointer;}
+    .btn-saiu:hover{filter:brightness(1.05);}
+
+    .status-info{font-size:12px;margin-top:6px;color:#cbd5e1}
+    .riscado{text-decoration:line-through;opacity:.55}
+    .obs-pago{color:#22c55e;font-weight:bold}
+    .obs-inad{color:#ef4444;font-weight:bold}
+
+    .grid-escalacao{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+    @media (max-width: 980px){.grid-escalacao{grid-template-columns:1fr}}
+    .grid-escalacao table{table-layout:fixed;}
+    .grid-escalacao th,.grid-escalacao td{overflow:hidden;text-overflow:ellipsis;}
+    .totais{font-weight:bold;text-align:right;margin-top:6px;font-size:12px;color:#cbd5e1}
+    .legenda{font-size:11px;margin-top:10px;color:#cbd5e1}
+    .t-amarelo{color:#facc15;font-weight:bold}
+    .t-azul{color:#38bdf8;font-weight:bold}
+    .clock-box{font-size:12px;color:#cbd5e1;padding:6px 10px;border:1px solid rgba(148,163,184,0.25);border-radius:10px;background:rgba(15,23,42,0.35);display:inline-block}
+
+    /* PDF via backend: só baixa arquivo, sem print */
+    .btn-pdf{background:#f97316;color:#0f172a}
+
+  </style>
+</head>
+<body>
+  <header>TESOURA - PRESENÇA / ESCALAÇÃO</header>
+
+  <div class="container">
+
+    <!-- TOPO: JOGADORES + PRESENÇA HOJE -->
+    <div class="linhas-topo">
+
+      <!-- JOGADORES -->
+      <div class="col-50">
+        <div class="painel">
+          <h2>Jogadores (todos)</h2>
+          <div class="status-info">Clique em <b>CHEGOU AGORA</b> quando o jogador chegar.</div>
+          <div id="status-jogadores" class="status-info"></div>
+
+          <div class="painel-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:70px">ID</th>
+                  <th>APELIDO</th>
+                  <th style="width:170px">CHEGOU AGORA</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-jogadores-todos"></tbody>
+            </table>
+          </div>
+
+          <div class="status-info" id="total-jogadores"></div>
+        </div>
+      </div>
+
+      <!-- PRESENÇA HOJE -->
+      <div class="col-50">
+        <div class="painel">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+            <h2 style="margin:0">Presença Hoje</h2>
+            <div>
+              <span class="status-info" style="margin-right:8px">Data do jogo:</span>
+              <input id="dataDomingo" type="date" style="padding:6px 8px;border-radius:8px;border:1px solid #334155;background:#0b1120;color:#f9fafb" />
+              <span class="clock-box" style="margin-left:10px">Horário da escalação: <b>06:20</b></span>
+            </div>
+          </div>
+
+          <div class="status-info" id="status-presenca"></div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:center">
+            <button class="btn-perigo" id="btn-limpar-hoje">Limpar hoje</button>
+            <button class="btn-primario" id="btn-escalar-1t">Escalar 1º tempo</button>
+
+            <!-- MARCADOR HH:MM acima do DESFAZER 1T -->
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div class="clock-box">Hora agora: <b id="horaAgora1T">--:--</b></div>
+              <button class="btn-neutro" id="btn-desfazer-1t">Desfazer 1º tempo</button>
+            </div>
+
+            <button class="btn-pdf" id="btn-pdf-presenca">Baixar PDF (arquivo)</button>
+          </div>
+
+          <div class="status-info" style="margin-top:10px">
+            <b id="presentes-hoje">Presentes hoje: 0</b>
+            <span style="margin-left:12px" id="lista-carregada"></span>
+          </div>
+
+          <div class="painel-scroll" style="max-height:360px;margin-top:8px">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:70px">ID</th>
+                  <th style="width:70px">ORDEM</th>
+                  <th>APELIDO</th>
+                  <th style="width:90px">HORA</th>
+                  <th style="width:100px">OBS</th>
+                  <th style="width:160px">NÃO VAI JOGAR</th>
+                  <th style="width:110px">EXCLUIR</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-presenca-hoje"></tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ESCALAÇÃO -->
+    <div class="painel" id="painelEscalacao">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0">Escalação do Jogo</h2>
+          <div class="legenda">
+            OBS: C (compareceu e não jogou) | F (faltou) | 1 (jogou 1º) | 2 (jogou 2º) | 1-2 (jogou os dois) |
+            <span class="obs-pago">P (verde) pagou</span> |
+            <span class="obs-inad">P (vermelho) não pagou</span>
+          </div>
+        </div>
+
+        <div class="clock-box">Hora agora: <b id="horaAgora2T">--:--</b></div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:center">
+        <button class="btn-primario" id="btn-escalar-2t">Escalar 2º tempo</button>
+        <button class="btn-neutro" id="btn-desfazer-2t">Desfazer 2º tempo</button>
+        <button class="btn-pdf" id="btn-pdf-1t">Baixar PDF 1º tempo</button>
+        <button class="btn-pdf" id="btn-pdf-2t">Baixar PDF 2º tempo</button>
+        <button class="btn-secundario" id="btn-salvar">Salvar</button>
+        <div class="status-info" style="margin-left:auto">Prioridade: quem não jogou.</div>
+      </div>
+
+      <div class="grid-escalacao" style="margin-top:10px">
+        <!-- 1T -->
+        <div>
+          <div class="status-info"><b>1º TEMPO</b></div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:55px">ID</th>
+                <th style="width:55px">POS</th>
+                <th class="t-amarelo">AMARELO</th>
+                <th style="width:70px">SAIU</th>
+                <th class="t-azul">AZUL</th>
+                <th style="width:70px">SAIU</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-esc1t"></tbody>
+          </table>
+        </div>
+
+        <!-- 2T -->
+        <div>
+          <div class="status-info"><b>2º TEMPO</b></div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:55px">ID</th>
+                <th style="width:55px">POS</th>
+                <th class="t-amarelo">AMARELO</th>
+                <th style="width:70px">SAIU</th>
+                <th class="t-azul">AZUL</th>
+                <th style="width:70px">SAIU</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-esc2t"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/* =====================
+   UTIL
+===================== */
+function pad2(n){ return String(n).padStart(2,"0"); }
+function hhmm(d){ return pad2(d.getHours())+":"+pad2(d.getMinutes()); }
+function ymd(d){ return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
+function brFromISO(iso){
+  const m = String(iso||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return iso || "";
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+function nowLocalStr(){
+  const d=new Date();
+  return `${ymd(d)} ${hhmm(d)}`;
+}
+function qs(sel){ return document.querySelector(sel); }
+function el(id){ return document.getElementById(id); }
+
+async function apiGet(url){
+  const r = await fetch(url,{method:"GET"});
+  const j = await r.json().catch(()=>null);
+  return {r,j};
+}
+async function apiPost(url, body){
+  const r = await fetch(url,{
+    method:"POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(body||{})
+  });
+  const j = await r.json().catch(()=>({ok:false,error:"Resposta inválida"}));
+  return {r,j};
+}
+
+/* =====================
+   DATA DOMINGO (padrão)
+===================== */
+function proximoDomingoISO(){
+  const d=new Date();
+  const dow=d.getDay(); // 0 domingo
+  const add=(7-dow)%7;
+  d.setDate(d.getDate()+add);
+  return ymd(d);
+}
+function getDataDomingo(){
+  const v = String(el("dataDomingo").value||"").trim();
+  return v || proximoDomingoISO();
+}
+
+/* =====================
+   PDF (ARQUIVO REAL)
+   - baixa do BACKEND
+===================== */
+async function baixarPdfServidor(tipo){
+  const data_domingo = getDataDomingo();
+  const url = `/api/presenca_escalacao/pdf?tipo=${encodeURIComponent(tipo)}&data_domingo=${encodeURIComponent(data_domingo)}&now_local=${encodeURIComponent(nowLocalStr())}`;
+
+  // força download
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/* =====================
+   RENDER
+===================== */
+function renderJogadores(lista){
+  const tb = el("tbody-jogadores-todos");
+  tb.innerHTML = "";
+  (lista||[]).forEach(j=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML = `
+      <td>${j.id}</td>
+      <td style="text-align:left;padding-left:8px">${(j.apelido||"")}</td>
+      <td>
+        <button class="btn-chegou" data-id="${j.id}">CHEGOU AGORA</button>
+      </td>
+    `;
+    tb.appendChild(tr);
+  });
+  el("total-jogadores").textContent = `TOTAL DE JOGADORES: ${(lista||[]).length}`;
+}
+
+function renderPresenca(lista){
+  const tb = el("tbody-presenca-hoje");
+  tb.innerHTML = "";
+  (lista||[]).forEach(p=>{
+    const tr=document.createElement("tr");
+    const riscado = p.nao_vai_jogar ? "riscado" : "";
+    tr.innerHTML = `
+      <td>${p.id}</td>
+      <td>${p.ordem ?? ""}</td>
+      <td class="${riscado}" style="text-align:left;padding-left:8px">${p.apelido||""}</td>
+      <td>${p.hora||""}</td>
+      <td>${p.obs||""}</td>
+      <td>
+        <button class="btn-nao-joga" data-id="${p.id}">NÃO VAI JOGAR</button>
+      </td>
+      <td>
+        <button class="btn-excluir" data-id="${p.id}">EXCLUIR</button>
+      </td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
+function renderEscalacao(rows, tbodyId){
+  const tb = el(tbodyId);
+  tb.innerHTML = "";
+  (rows||[]).forEach(r=>{
+    // GARANTE: AZUL na coluna AZUL (corrige o seu item 6)
+    const tr=document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.id||""}</td>
+      <td>${r.pos||""}</td>
+      <td style="text-align:left;padding-left:8px">${r.amarelo||""}</td>
+      <td>${r.saiuA ? `<button class="btn-saiu">SAIU</button>` : ""}</td>
+      <td style="text-align:left;padding-left:8px">${r.azul||""}</td>
+      <td>${r.saiuB ? `<button class="btn-saiu">SAIU</button>` : ""}</td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
+/* =====================
+   CARREGAR STATE
+===================== */
+async function carregarState(){
+  const data_domingo = getDataDomingo();
+  const url = `/api/presenca_escalacao/state?data_domingo=${encodeURIComponent(data_domingo)}&now_local=${encodeURIComponent(nowLocalStr())}`;
+  const {r,j} = await apiGet(url);
+
+  if(!j || !j.ok){
+    el("status-presenca").textContent = "ERRO ao carregar: " + (j?.error || ("HTTP "+r.status));
+    return;
+  }
+
+  el("lista-carregada").textContent = `Lista carregada. (Domingo: ${data_domingo})`;
+  el("presentes-hoje").textContent = `Presentes hoje: ${(j.presencas||[]).length}`;
+
+  renderJogadores(j.jogadores||[]);
+  renderPresenca(j.presencas||[]);
+  renderEscalacao(j.escalacao_1t||[], "tbody-esc1t");
+  renderEscalacao(j.escalacao_2t||[], "tbody-esc2t");
+
+  el("status-presenca").textContent = "OK";
+}
+
+/* =====================
+   AÇÕES
+===================== */
+async function chegouAgora(id){
+  const data_domingo = getDataDomingo();
+  const {j} = await apiPost("/api/presenca_escalacao/chegou", { id, data_domingo, now_local: nowLocalStr() });
+  if(!j || !j.ok){
+    alert("ERRO ao marcar CHEGOU: " + (j?.error||""));
+    return;
+  }
+  await carregarState();
+}
+
+async function toggleNaoVaiJogar(id){
+  const data_domingo = getDataDomingo();
+
+  // tenta backend
+  const {r,j} = await apiPost("/api/presenca_escalacao/toggle_nao_joga", { id, data_domingo });
+
+  // se backend falhar, ainda risca localmente para você ver (mas não grava)
+  if(!j || !j.ok){
+    // risca local apenas (visual)
+    const rowBtn = document.querySelector(`button.btn-nao-joga[data-id="${id}"]`);
+    const apelidoCell = rowBtn?.closest("tr")?.querySelector("td:nth-child(3)");
+    if(apelidoCell){
+      apelidoCell.classList.toggle("riscado");
+      el("status-presenca").textContent = "Aviso: backend não respondeu. Risquei só na tela.";
+    }
+    alert("Erro ao alterar NÃO VAI JOGAR.");
+    return;
+  }
+
+  await carregarState();
+}
+
+async function excluirPresenca(id){
+  const data_domingo = getDataDomingo();
+  const {j} = await apiPost("/api/presenca_escalacao/remover", { id, data_domingo });
+  if(!j || !j.ok){
+    alert("ERRO ao excluir: " + (j?.error||""));
+    return;
+  }
+  await carregarState();
+}
+
+async function limparHoje(){
+  const data_domingo = getDataDomingo();
+  const {j} = await apiPost("/api/presenca_escalacao/limpar", { data_domingo });
+  if(!j || !j.ok){
+    alert("ERRO ao limpar: " + (j?.error||""));
+    return;
+  }
+  await carregarState();
+}
+
+async function escalar(tempo){
+  const data_domingo = getDataDomingo();
+  const {j} = await apiPost("/api/presenca_escalacao/escalar", { data_domingo, tempo, now_local: nowLocalStr() });
+  if(!j || !j.ok){
+    alert("ERRO ao escalar " + tempo + ": " + (j?.error||""));
+    return;
+  }
+  await carregarState();
+}
+
+async function desfazer(tempo){
+  const data_domingo = getDataDomingo();
+  const {j} = await apiPost("/api/presenca_escalacao/desfazer", { data_domingo, tempo });
+  if(!j || !j.ok){
+    alert("ERRO ao desfazer " + tempo + ": " + (j?.error||""));
+    return;
+  }
+  await carregarState();
+}
+
+/* =====================
+   EVENTOS
+===================== */
+document.addEventListener("click", async (ev)=>{
+  const t = ev.target;
+  if(!(t instanceof HTMLElement)) return;
+
+  if(t.matches("button.btn-chegou")){
+    const id = Number(t.getAttribute("data-id"));
+    if(id) await chegouAgora(id);
+  }
+  if(t.matches("button.btn-nao-joga")){
+    const id = Number(t.getAttribute("data-id"));
+    if(id) await toggleNaoVaiJogar(id);
+  }
+  if(t.matches("button.btn-excluir")){
+    const id = Number(t.getAttribute("data-id"));
+    if(id) await excluirPresenca(id);
+  }
+});
+
+el("btn-limpar-hoje").onclick = limparHoje;
+el("btn-escalar-1t").onclick = ()=>escalar("1T");
+el("btn-escalar-2t").onclick = ()=>escalar("2T");
+el("btn-desfazer-1t").onclick = ()=>desfazer("1T");
+el("btn-desfazer-2t").onclick = ()=>desfazer("2T");
+
+el("btn-pdf-presenca").onclick = ()=>baixarPdfServidor("presenca");
+el("btn-pdf-1t").onclick = ()=>baixarPdfServidor("1T");
+el("btn-pdf-2t").onclick = ()=>baixarPdfServidor("2T");
+
+function tick(){
+  const d=new Date();
+  el("horaAgora1T").textContent = hhmm(d);
+  el("horaAgora2T").textContent = hhmm(d);
+}
+setInterval(tick,1000);
+tick();
+
+/* INIT */
+el("dataDomingo").value = proximoDomingoISO();
+carregarState();
+
+</script>
+</body>
+</html>
 
