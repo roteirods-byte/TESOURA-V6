@@ -1,5 +1,3 @@
-<!-- INDEX_FRAME_FIX_1769019546 -->
-<!-- INDEX_FIX_1769018995 -->
 <!doctype html>
 <html lang="pt-br">
 <head>
@@ -311,35 +309,6 @@
       qs("frame").addEventListener("load", ()=>aplicarModoNoIframe());
     });
   </script>
-
-<style>
-/* FIX_IFRAME_PANELS_VISIBLE */
-/* garante que painel em iframe apareça (altura/visibilidade) */
-main iframe, #panelHost iframe, #panelContainer iframe, #panel iframe {
-  width: 100%;
-  height: 78vh;
-  min-height: 650px;
-  border: 0;
-  display: block;
-}
-#panelHost, #panelContainer, #panel, main {
-  min-height: 78vh;
-}
-</style>
-
-
-<style>
-/* FIX_FRAME_FORCE_VISIBLE */
-#frame{
-  width:100% !important;
-  height:78vh !important;
-  min-height:650px !important;
-  display:block !important;
-  border:2px solid #ff8a2a !important; /* só pra enxergar */
-  background:#0b1220 !important;
-}
-</style>
-
 </head>
 
 <body>

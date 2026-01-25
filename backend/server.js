@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
@@ -7,76 +8,158 @@ const Database = require("better-sqlite3");
 
 const { saveSnapshot, listSnapshots, loadSnapshot } = require("./modules/_core/archive");
 
+/**
+ * TESOURA V6 — Backend estável (GitHub-first)
+ * Foco: Jogadores + Presença/Escalação
+ * - Não depende de schema antigo: cria/migra colunas na inicialização
+ * - Rotas compatíveis com os paineis em /frontend/panels
+ */
+
+const PORT = Number(process.env.PORT || 8080);
+const DB_PATH = process.env.TESOURA_DB_PATH || path.resolve(__dirname, "tesoura.db");
+
 const app = express();
 app.disable("x-powered-by");
 
-// ===== PARSE ÚNICO (SEM DUPLICAR) =====
+// CORS + body
 app.use(cors());
 app.use(express.json({ limit: "2mb", strict: false }));
-app.use(express.urlencoded({ extended: false, limit: "2mb", parameterLimit: 200000 }));
-app.use((req, res, next) => {
-  if ((req.method === "POST" || req.method === "PUT" || req.method === "PATCH") && (req.body == null || typeof req.body !== "object")) {
-    req.body = {};
-  }
-  next();
-});
+app.use(express.urlencoded({ extended: false, limit: "2mb" }));
 
-// ===== VERSION (obrigatório existir) =====
-app.get("/api/version", (req, res) => {
-  res.json({
-    ok: true,
-    marker: "TESOURA-V6_BACKEND_2026-01-23_FIX_DB_SCHEMA",
-    now: new Date().toISOString()
-  });
-});
-
-const PORT = process.env.PORT || 8080;
-
-// ========= DB (CORRETO: usa TESOURA_DB_PATH do service) =========
-const DB_PATH =
-  process.env.TESOURA_DB_PATH ||
-  process.env.SQLITE_PATH ||
-  path.join(__dirname, "db", "tesoura.sqlite");
-
+// DB
 const db = new Database(DB_PATH);
+db.pragma("journal_mode = WAL");
+db.pragma("foreign_keys = ON");
 
-// ========= HELPERS =========
-const ALLOWED_PANELS = new Set([
-  "jogadores",
-  "presenca_escalacao",
-  "controle_geral",
-  "mensalidade",
-  "caixa",
-  "gols",
-]);
-function mustBeAllowedPanel(panel) { return ALLOWED_PANELS.has(panel); }
-function str(v) { return (v === null || v === undefined) ? "" : String(v); }
-function pad2(n){ return String(n).padStart(2, "0"); }
+// -------------------- utils --------------------
+function str(x) { return (x == null) ? "" : String(x); }
+function int(x, def = 0) {
+  const n = Number.parseInt(String(x), 10);
+  return Number.isFinite(n) ? n : def;
+}
+function nowISO() { return new Date().toISOString(); }
+function pad2(n) { return String(n).padStart(2, "0"); }
 
-function tableColumns(tableName) {
+// ----- schema helpers -----
+function tableColumns(table) {
   try {
-    const rows = db.prepare(`PRAGMA table_info(${tableName})`).all();
+    const rows = db.prepare(`PRAGMA table_info(${table})`).all();
     return new Set(rows.map(r => String(r.name)));
   } catch {
     return new Set();
   }
 }
-function pickCol(colsSet, candidates) {
-  for (const c of candidates) if (colsSet.has(c)) return c;
-  return null;
+function tableExists(table) {
+  const r = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table);
+  return !!r;
+}
+function addColumnIfMissing(table, col, typeSql) {
+  const cols = tableColumns(table);
+  if (!cols.has(col)) {
+    db.prepare(`ALTER TABLE ${table} ADD COLUMN ${col} ${typeSql}`).run();
+  }
 }
 
-// ========= STATIC (frontend) =========
-const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
-app.use("/", express.static(FRONTEND_DIR));
+function ensureSchema() {
+  // jogadores
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS jogadores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      camisa TEXT,
+      apelido TEXT,
+      nome TEXT,
+      nascimento TEXT,
+      celular TEXT,
+      posicao TEXT,
+      hab INTEGER,
+      vel INTEGER,
+      mov INTEGER,
+      pontos INTEGER DEFAULT 0,
+      ativo INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT
+    );
+  `);
 
-// ========= ROTAS DE ARQUIVO (snapshots) =========
+  // garante colunas (caso tabela antiga exista com nomes diferentes)
+  addColumnIfMissing("jogadores", "camisa", "TEXT");
+  addColumnIfMissing("jogadores", "apelido", "TEXT");
+  addColumnIfMissing("jogadores", "nome", "TEXT");
+  addColumnIfMissing("jogadores", "nascimento", "TEXT");
+  addColumnIfMissing("jogadores", "celular", "TEXT");
+  addColumnIfMissing("jogadores", "posicao", "TEXT");
+  addColumnIfMissing("jogadores", "hab", "INTEGER");
+  addColumnIfMissing("jogadores", "vel", "INTEGER");
+  addColumnIfMissing("jogadores", "mov", "INTEGER");
+  addColumnIfMissing("jogadores", "pontos", "INTEGER DEFAULT 0");
+  addColumnIfMissing("jogadores", "ativo", "INTEGER DEFAULT 1");
+  addColumnIfMissing("jogadores", "created_at", "TEXT");
+  addColumnIfMissing("jogadores", "updated_at", "TEXT");
+
+  // presencas
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS presencas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      data_domingo TEXT NOT NULL,
+      ordem INTEGER,
+      apelido TEXT NOT NULL,
+      hora TEXT,
+      obs TEXT,
+      nao_joga INTEGER DEFAULT 0,
+      saiu INTEGER DEFAULT 0
+    );
+  `);
+  addColumnIfMissing("presencas", "data_domingo", "TEXT");
+  addColumnIfMissing("presencas", "ordem", "INTEGER");
+  addColumnIfMissing("presencas", "apelido", "TEXT");
+  addColumnIfMissing("presencas", "hora", "TEXT");
+  addColumnIfMissing("presencas", "obs", "TEXT");
+  addColumnIfMissing("presencas", "nao_joga", "INTEGER DEFAULT 0");
+  addColumnIfMissing("presencas", "saiu", "INTEGER DEFAULT 0");
+
+  // escalacoes
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS escalacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      data_domingo TEXT NOT NULL,
+      tempo TEXT NOT NULL,
+      pos INTEGER NOT NULL,
+      apelido TEXT NOT NULL,
+      time TEXT,
+      created_at TEXT
+    );
+  `);
+  addColumnIfMissing("escalacoes", "data_domingo", "TEXT");
+  addColumnIfMissing("escalacoes", "tempo", "TEXT");
+  addColumnIfMissing("escalacoes", "pos", "INTEGER");
+  addColumnIfMissing("escalacoes", "apelido", "TEXT");
+  addColumnIfMissing("escalacoes", "time", "TEXT");
+  addColumnIfMissing("escalacoes", "created_at", "TEXT");
+
+  // índices (idempotente)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_presencas_data ON presencas(data_domingo);`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_escalacoes_data ON escalacoes(data_domingo, tempo);`);
+}
+ensureSchema();
+
+// -------------------- VERSION --------------------
+function readVersionTxt() {
+  try {
+    const p = path.resolve(__dirname, "..", "frontend", "version.txt");
+    return fs.readFileSync(p, "utf-8").trim();
+  } catch {
+    return "";
+  }
+}
+app.get("/api/version", (req, res) => {
+  res.json({ ok: true, version: readVersionTxt(), time: nowISO() });
+});
+
+// -------------------- ARQUIVOS (snapshots) --------------------
 app.get("/api/arquivo/listar", (req, res) => {
   try {
-    const panel = str(req.query.panel).trim();
-    if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
-    const items = listSnapshots(panel);
-    res.json({ ok: true, items });
+    const list = listSnapshots(db);
+    res.json({ ok: true, list });
   } catch (e) {
     res.status(400).json({ ok: false, error: String(e.message || e) });
   }
@@ -84,11 +167,9 @@ app.get("/api/arquivo/listar", (req, res) => {
 
 app.get("/api/arquivo/carregar", (req, res) => {
   try {
-    const panel = str(req.query.panel).trim();
-    const ref = str(req.query.ref).trim();
-    if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
-    if (!ref) return res.status(400).json({ ok: false, error: "Faltou ref" });
-    const data = loadSnapshot(panel, ref);
+    const id = str(req.query.id).trim();
+    if (!id) return res.status(400).json({ ok: false, error: "Faltou id" });
+    const data = loadSnapshot(db, id);
     res.json({ ok: true, data });
   } catch (e) {
     res.status(400).json({ ok: false, error: String(e.message || e) });
@@ -98,192 +179,254 @@ app.get("/api/arquivo/carregar", (req, res) => {
 app.post("/api/arquivo/salvar", (req, res) => {
   try {
     const b = req.body || {};
-    const panel = str(b.panel).trim();
-    const payload = (b.data !== undefined) ? b.data : ((b.payload !== undefined) ? b.payload : null);
-    if (!mustBeAllowedPanel(panel)) return res.status(400).json({ ok: false, error: "Painel inválido" });
-    if (payload == null) return res.status(400).json({ ok: false, error: "Faltou data" });
-    const ref = saveSnapshot(panel, payload);
-    res.json({ ok: true, ref });
+    const panel = str(b.panel).trim() || "desconhecido";
+    const payload = b.payload || {};
+    const id = saveSnapshot(db, panel, payload);
+    res.json({ ok: true, id });
   } catch (e) {
     res.status(400).json({ ok: false, error: String(e.message || e) });
   }
 });
 
-// ========= PRESENÇA / ESCALAÇÃO =========
-function detectJogadoresSchema() {
-  const cols = tableColumns("jogadores");
-  const idCol = pickCol(cols, ["id"]);
-  const apelidoCol = pickCol(cols, ["apelido", "nome"]);
-  const posCol = pickCol(cols, ["posicao", "pos", "posição"]);
-  const pontosCol = pickCol(cols, ["pontos", "pontuacao", "pontuação"]);
-  const ativoCol = pickCol(cols, ["ativo", "is_ativo", "status"]);
-  return { idCol, apelidoCol, posCol, pontosCol, ativoCol };
+// -------------------- JOGADORES --------------------
+function normalizeApelido(a) {
+  return str(a).trim();
 }
+function getJogadores(onlyAtivos = true) {
+  const cols = tableColumns("jogadores");
+  // compat: alguns bancos antigos usam "pos" em vez de "posicao"
+  const posCol = cols.has("posicao") ? "posicao" : (cols.has("pos") ? "pos" : "posicao");
 
-function getJogadoresAtivos() {
-  const sch = detectJogadoresSchema();
-  if (!sch.idCol || !sch.apelidoCol) throw new Error("Tabela jogadores sem colunas mínimas (id + apelido/nome).");
-
-  const selPos = sch.posCol ? sch.posCol : "''";
-  const selPontos = sch.pontosCol ? sch.pontosCol : "NULL";
-
-  let where = "1=1";
-  if (sch.ativoCol) where = `COALESCE(${sch.ativoCol},1)=1`;
-
+  const where = onlyAtivos ? "WHERE COALESCE(ativo,1)=1" : "";
   const sql = `
     SELECT
-      ${sch.idCol} AS id,
-      ${sch.apelidoCol} AS apelido,
-      ${selPos} AS posicao,
-      ${selPontos} AS pontos
+      id,
+      COALESCE(camisa,'') AS camisa,
+      COALESCE(apelido,'') AS apelido,
+      COALESCE(nome,'') AS nome,
+      COALESCE(nascimento,'') AS nascimento,
+      COALESCE(celular,'') AS celular,
+      COALESCE(${posCol},'') AS posicao,
+      COALESCE(hab,0) AS hab,
+      COALESCE(vel,0) AS vel,
+      COALESCE(mov,0) AS mov,
+      COALESCE(pontos,0) AS pontos,
+      COALESCE(ativo,1) AS ativo
     FROM jogadores
-    WHERE ${where}
-    ORDER BY apelido COLLATE NOCASE
+    ${where}
+    ORDER BY LOWER(apelido) ASC
   `;
   return db.prepare(sql).all();
 }
 
-function detectPresencasSchema() {
-  const cols = tableColumns("presencas");
-  return {
-    idCol: pickCol(cols, ["id"]),
-    dataCol: pickCol(cols, ["data_domingo", "data", "domingo"]),
-    ordemCol: pickCol(cols, ["ordem", "ord"]),
-    apelidoCol: pickCol(cols, ["apelido", "nome"]),
-    horaCol: pickCol(cols, ["hora", "horario", "hhmm"]),
-    obsCol: pickCol(cols, ["obs", "observacao", "observações", "observacao_texto"]),
-    naoJogaCol: pickCol(cols, ["nao_joga", "nao_vai_jogar", "nao_jogar", "naojoga"]),
-    saiuCol: pickCol(cols, ["saiu", "saiu_1t", "saiu1t"])
-  };
-}
+app.get("/api/jogadores", (req, res) => {
+  try {
+    const all = str(req.query.all).trim() === "1";
+    const jogadores = getJogadores(!all);
+    res.json({ ok: true, jogadores });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
 
+app.post("/api/jogadores", (req, res) => {
+  try {
+    const b = req.body || {};
+    const apelido = normalizeApelido(b.apelido);
+    if (!apelido) return res.status(400).json({ ok: false, error: "Faltou apelido" });
+
+    // impede duplicado
+    const exists = db.prepare("SELECT 1 FROM jogadores WHERE LOWER(apelido)=LOWER(?) LIMIT 1").get(apelido);
+    if (exists) return res.status(400).json({ ok: false, error: "apelido já existe" });
+
+    const now = nowISO();
+    db.prepare(`
+      INSERT INTO jogadores (camisa, apelido, nome, nascimento, celular, posicao, hab, vel, mov, pontos, ativo, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    `).run(
+      str(b.camisa).trim(),
+      apelido,
+      str(b.nome).trim(),
+      str(b.nascimento).trim(),
+      str(b.celular).trim(),
+      str(b.posicao).trim(),
+      int(b.hab, 0),
+      int(b.vel, 0),
+      int(b.mov, 0),
+      int(b.pontos, 0),
+      now,
+      now
+    );
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.put("/api/jogadores/:apelido", (req, res) => {
+  try {
+    const oldApelido = normalizeApelido(req.params.apelido);
+    const b = req.body || {};
+    if (!oldApelido) return res.status(400).json({ ok: false, error: "Faltou apelido (url)" });
+
+    const newApelido = normalizeApelido(b.apelido || oldApelido);
+    if (!newApelido) return res.status(400).json({ ok: false, error: "Faltou apelido" });
+
+    // se mudou apelido, valida duplicado
+    if (newApelido.toLowerCase() !== oldApelido.toLowerCase()) {
+      const dup = db.prepare("SELECT 1 FROM jogadores WHERE LOWER(apelido)=LOWER(?) LIMIT 1").get(newApelido);
+      if (dup) return res.status(400).json({ ok: false, error: "apelido já existe" });
+    }
+
+    const now = nowISO();
+    const r = db.prepare(`
+      UPDATE jogadores
+         SET camisa=?,
+             apelido=?,
+             nome=?,
+             nascimento=?,
+             celular=?,
+             posicao=?,
+             hab=?,
+             vel=?,
+             mov=?,
+             pontos=?,
+             updated_at=?
+       WHERE LOWER(apelido)=LOWER(?)
+    `).run(
+      str(b.camisa).trim(),
+      newApelido,
+      str(b.nome).trim(),
+      str(b.nascimento).trim(),
+      str(b.celular).trim(),
+      str(b.posicao).trim(),
+      int(b.hab, 0),
+      int(b.vel, 0),
+      int(b.mov, 0),
+      int(b.pontos, 0),
+      now,
+      oldApelido
+    );
+
+    if (r.changes === 0) return res.status(404).json({ ok: false, error: "jogador não encontrado" });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.delete("/api/jogadores/:apelido", (req, res) => {
+  try {
+    const apelido = normalizeApelido(req.params.apelido);
+    if (!apelido) return res.status(400).json({ ok: false, error: "Faltou apelido" });
+
+    // soft delete (mais seguro)
+    const r = db.prepare("UPDATE jogadores SET ativo=0, updated_at=? WHERE LOWER(apelido)=LOWER(?)").run(nowISO(), apelido);
+    if (r.changes === 0) return res.status(404).json({ ok: false, error: "jogador não encontrado" });
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// -------------------- PRESENÇA / ESCALAÇÃO --------------------
 function getPresencas(data_domingo) {
-  const s = detectPresencasSchema();
-  if (!s.dataCol || !s.apelidoCol) throw new Error("Tabela presencas sem colunas mínimas (data_domingo + apelido/nome).");
-
-  const selId = s.idCol ? s.idCol : "NULL";
-  const selOrdem = s.ordemCol ? s.ordemCol : "0";
-  const selHora = s.horaCol ? s.horaCol : "''";
-  const selObs = s.obsCol ? s.obsCol : "''";
-  const selNao = s.naoJogaCol ? s.naoJogaCol : "0";
-  const selSaiu = s.saiuCol ? s.saiuCol : "0";
-
-  const sql = `
-    SELECT
-      ${selId} AS id,
-      ${selOrdem} AS ordem,
-      ${s.apelidoCol} AS apelido,
-      ${selHora} AS hora,
-      ${selObs} AS obs,
-      ${selNao} AS nao_joga,
-      ${selSaiu} AS saiu
-    FROM presencas
-    WHERE ${s.dataCol}=?
-    ORDER BY ordem ASC, id ASC
-  `;
-  return db.prepare(sql).all(data_domingo);
+  return db.prepare(`
+    SELECT id, COALESCE(ordem,0) AS ordem, apelido,
+           COALESCE(hora,'') AS hora,
+           COALESCE(obs,'') AS obs,
+           COALESCE(nao_joga,0) AS nao_joga,
+           COALESCE(saiu,0) AS saiu
+      FROM presencas
+     WHERE data_domingo=?
+     ORDER BY COALESCE(ordem,0) ASC, id ASC
+  `).all(data_domingo);
 }
 
-function detectEscalacoesSchema() {
-  const cols = tableColumns("escalacoes");
-  return {
-    idCol: pickCol(cols, ["id"]),
-    dataCol: pickCol(cols, ["data_domingo", "data", "domingo"]),
-    tempoCol: pickCol(cols, ["tempo"]),
-    timeCol: pickCol(cols, ["time", "equipe"]),
-    apelidoCol: pickCol(cols, ["apelido", "nome"]),
-    posCol: pickCol(cols, ["pos", "posicao", "posição"]),
-    pontosCol: pickCol(cols, ["pontos", "pontuacao", "pontuação"])
-  };
-}
-
-function getEscalacao(data_domingo, tempo) {
-  const s = detectEscalacoesSchema();
-  if (!s.dataCol || !s.tempoCol) return []; // se não existir, não quebra
-
-  const selId = s.idCol ? s.idCol : "NULL";
-  const selTime = s.timeCol ? s.timeCol : "''";
-  const selApelido = s.apelidoCol ? s.apelidoCol : "''";
-  const selPos = s.posCol ? s.posCol : "''";
-  const selPontos = s.pontosCol ? s.pontosCol : "NULL";
-
-  const sql = `
-    SELECT
-      ${selId} AS id,
-      ${s.tempoCol} AS tempo,
-      ${selTime} AS time,
-      ${selApelido} AS apelido,
-      ${selPos} AS pos,
-      ${selPontos} AS pontos
-    FROM escalacoes
-    WHERE ${s.dataCol}=? AND ${s.tempoCol}=?
-    ORDER BY time ASC, pos ASC, id ASC
-  `;
-  return db.prepare(sql).all(data_domingo, tempo);
-}
-
-function getPagoMap(jogadores) {
-  const map = {};
-  (jogadores || []).forEach(j => { map[j.apelido] = "red"; });
-  return map;
+function resequencePresencas(data_domingo) {
+  const rows = db.prepare(`SELECT id FROM presencas WHERE data_domingo=? ORDER BY COALESCE(ordem,0) ASC, id ASC`).all(data_domingo);
+  const upd = db.prepare(`UPDATE presencas SET ordem=? WHERE id=?`);
+  const tx = db.transaction(() => {
+    rows.forEach((r, i) => upd.run(i + 1, r.id));
+  });
+  tx();
 }
 
 function setPresencaChegou(data_domingo, apelido, now_local) {
-  const s = detectPresencasSchema();
-  if (!s.dataCol || !s.apelidoCol) throw new Error("Tabela presencas incompatível (sem data_domingo/apelido).");
-
-  // pega max ordem
-  let maxOrdem = 0;
-  if (s.ordemCol) {
-    maxOrdem = db.prepare(`SELECT COALESCE(MAX(${s.ordemCol}),0) AS m FROM presencas WHERE ${s.dataCol}=?`).get(data_domingo).m || 0;
-  }
-
   // impede duplicado
-  const exists = db.prepare(`SELECT 1 FROM presencas WHERE ${s.dataCol}=? AND ${s.apelidoCol}=?`).get(data_domingo, apelido);
+  const exists = db.prepare(`SELECT 1 FROM presencas WHERE data_domingo=? AND apelido=?`).get(data_domingo, apelido);
   if (exists) throw new Error("jogador já está na lista");
+
+  // ordem (último + 1)
+  const max = db.prepare(`SELECT MAX(COALESCE(ordem,0)) AS m FROM presencas WHERE data_domingo=?`).get(data_domingo);
+  const maxOrdem = int(max && max.m, 0);
 
   // hora HH:MM
   let hhmm = "";
-  const m = String(now_local || "").match(/\b(\d{2}):(\d{2})\b/);
+  const m = str(now_local).match(/\b(\d{2}):(\d{2})\b/);
   if (m) hhmm = `${m[1]}:${m[2]}`;
   if (!hhmm) {
     const d = new Date();
     hhmm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
 
-  // monta insert só com colunas que existem
-  const cols = [];
-  const vals = [];
-  const qs = [];
-
-  cols.push(s.dataCol); vals.push(data_domingo); qs.push("?");
-  cols.push(s.apelidoCol); vals.push(apelido); qs.push("?");
-
-  if (s.ordemCol) { cols.push(s.ordemCol); vals.push(maxOrdem + 1); qs.push("?"); }
-  if (s.horaCol) { cols.push(s.horaCol); vals.push(hhmm); qs.push("?"); }
-  if (s.obsCol) { cols.push(s.obsCol); vals.push(""); qs.push("?"); }
-  if (s.naoJogaCol) { cols.push(s.naoJogaCol); vals.push(0); qs.push("?"); }
-  if (s.saiuCol) { cols.push(s.saiuCol); vals.push(0); qs.push("?"); }
-
-  const sql = `INSERT INTO presencas (${cols.join(",")}) VALUES (${qs.join(",")})`;
-  db.prepare(sql).run(...vals);
+  db.prepare(`
+    INSERT INTO presencas (data_domingo, ordem, apelido, hora, obs, nao_joga, saiu)
+    VALUES (?, ?, ?, ?, '', 0, 0)
+  `).run(data_domingo, maxOrdem + 1, apelido, hhmm);
 }
 
-// stubs seguros
-function computeEscalacao1T() { return true; }
-function computeEscalacao2T() { return true; }
+function getEscalacao(data_domingo, tempo) {
+  return db.prepare(`
+    SELECT id, pos, apelido, COALESCE(time,'') AS time
+      FROM escalacoes
+     WHERE data_domingo=? AND tempo=?
+     ORDER BY pos ASC, id ASC
+  `).all(data_domingo, tempo);
+}
+
+function computeEscalacao(data_domingo, tempo) {
+  // candidatos elegíveis (nao_joga=0)
+  const pres = getPresencas(data_domingo);
+
+  const elegiveis = pres.filter(p => !p.nao_joga);
+  const apelidos1T = new Set(getEscalacao(data_domingo, "1T").map(x => x.apelido));
+
+  let candidatos = elegiveis;
+
+  if (tempo === "2T") {
+    // prioridade: quem NÃO jogou 1T
+    const a = elegiveis.filter(p => !apelidos1T.has(p.apelido) && !p.saiu);
+    const b = elegiveis.filter(p => apelidos1T.has(p.apelido) && !p.saiu);
+    candidatos = a.concat(b);
+  }
+
+  const escolhidos = candidatos.slice(0, 20).map(x => x.apelido);
+
+  const del = db.prepare(`DELETE FROM escalacoes WHERE data_domingo=? AND tempo=?`);
+  const ins = db.prepare(`INSERT INTO escalacoes (data_domingo, tempo, pos, apelido, time, created_at) VALUES (?, ?, ?, ?, '', ?)`);
+  const tx = db.transaction(() => {
+    del.run(data_domingo, tempo);
+    escolhidos.forEach((apelido, i) => ins.run(data_domingo, tempo, i + 1, apelido, nowISO()));
+  });
+  tx();
+}
 
 app.get("/api/presenca_escalacao/state", (req, res) => {
   try {
     const data_domingo = str(req.query.data_domingo).trim();
-    const now_local = str(req.query.now_local).trim();
     if (!data_domingo) return res.status(400).json({ ok: false, error: "Faltou data_domingo" });
 
-    const jogadores = getJogadoresAtivos();
+    const jogadores = getJogadores(true);
     const presencas = getPresencas(data_domingo);
     const escalacao1 = getEscalacao(data_domingo, "1T");
     const escalacao2 = getEscalacao(data_domingo, "2T");
-    const pagoMap = getPagoMap(jogadores);
+
+    // pagoMap (placeholder seguro): todos como pago=1
+    const pagoMap = {};
+    jogadores.forEach(j => { pagoMap[j.apelido] = 1; });
 
     res.json({ ok: true, jogadores, presencas, escalacao1, escalacao2, pagoMap });
   } catch (e) {
@@ -306,20 +449,72 @@ app.post("/api/presenca_escalacao/chegou", (req, res) => {
   }
 });
 
+app.post("/api/presenca_escalacao/toggle_nao_joga", (req, res) => {
+  try {
+    const b = req.body || {};
+    const data_domingo = str(b.data_domingo).trim();
+    const apelido = str(b.apelido).trim();
+    if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
+
+    const row = db.prepare(`SELECT id, COALESCE(nao_joga,0) AS nao_joga FROM presencas WHERE data_domingo=? AND apelido=?`).get(data_domingo, apelido);
+    if (!row) return res.status(404).json({ ok: false, error: "presença não encontrada" });
+
+    const novo = row.nao_joga ? 0 : 1;
+    db.prepare(`UPDATE presencas SET nao_joga=? WHERE id=?`).run(novo, row.id);
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post("/api/presenca_escalacao/toggle_saiu", (req, res) => {
+  try {
+    const b = req.body || {};
+    const data_domingo = str(b.data_domingo).trim();
+    const apelido = str(b.apelido).trim();
+    if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
+
+    const row = db.prepare(`SELECT id, COALESCE(saiu,0) AS saiu FROM presencas WHERE data_domingo=? AND apelido=?`).get(data_domingo, apelido);
+    if (!row) return res.status(404).json({ ok: false, error: "presença não encontrada" });
+
+    const novo = row.saiu ? 0 : 1;
+    db.prepare(`UPDATE presencas SET saiu=? WHERE id=?`).run(novo, row.id);
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post("/api/presenca_escalacao/remover", (req, res) => {
+  try {
+    const b = req.body || {};
+    const data_domingo = str(b.data_domingo).trim();
+    const apelido = str(b.apelido).trim();
+    if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
+
+    db.prepare(`DELETE FROM presencas WHERE data_domingo=? AND apelido=?`).run(data_domingo, apelido);
+    resequencePresencas(data_domingo);
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
 app.post("/api/presenca_escalacao/limpar", (req, res) => {
   try {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
     if (!data_domingo) return res.status(400).json({ ok: false, error: "Faltou data_domingo" });
 
-    const p = detectPresencasSchema();
-    const e = detectEscalacoesSchema();
-    if (p.dataCol) db.prepare(`DELETE FROM presencas WHERE ${p.dataCol}=?`).run(data_domingo);
-    if (e.dataCol) db.prepare(`DELETE FROM escalacoes WHERE ${e.dataCol}=?`).run(data_domingo);
+    db.prepare(`DELETE FROM presencas WHERE data_domingo=?`).run(data_domingo);
+    db.prepare(`DELETE FROM escalacoes WHERE data_domingo=?`).run(data_domingo);
 
     res.json({ ok: true });
-  } catch (er) {
-    res.status(400).json({ ok: false, error: String(er.message || er) });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
   }
 });
 
@@ -328,12 +523,11 @@ app.post("/api/presenca_escalacao/escalar", (req, res) => {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
     const tempo = str(b.tempo).trim();
-    const now_local = str(b.now_local).trim();
-    if (!data_domingo || (tempo !== "1T" && tempo !== "2T")) return res.status(400).json({ ok: false, error: "Faltou data_domingo/tempo" });
+    if (!data_domingo || (tempo !== "1T" && tempo !== "2T")) {
+      return res.status(400).json({ ok: false, error: "Faltou data_domingo/tempo" });
+    }
 
-    if (tempo === "1T") computeEscalacao1T(data_domingo, now_local);
-    else computeEscalacao2T(data_domingo, now_local);
-
+    computeEscalacao(data_domingo, tempo);
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ ok: false, error: String(e.message || e) });
@@ -345,17 +539,48 @@ app.post("/api/presenca_escalacao/desfazer", (req, res) => {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
     const tempo = str(b.tempo).trim();
-    if (!data_domingo || (tempo !== "1T" && tempo !== "2T")) return res.status(400).json({ ok: false, error: "Faltou data_domingo/tempo" });
+    if (!data_domingo || (tempo !== "1T" && tempo !== "2T")) {
+      return res.status(400).json({ ok: false, error: "Faltou data_domingo/tempo" });
+    }
 
-    const e = detectEscalacoesSchema();
-    if (e.dataCol && e.tempoCol) db.prepare(`DELETE FROM escalacoes WHERE ${e.dataCol}=? AND ${e.tempoCol}=?`).run(data_domingo, tempo);
-
+    db.prepare(`DELETE FROM escalacoes WHERE data_domingo=? AND tempo=?`).run(data_domingo, tempo);
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ ok: false, error: String(e.message || e) });
   }
 });
 
+app.post("/api/presenca_escalacao/salvar", (req, res) => {
+  try {
+    const b = req.body || {};
+    const data_domingo = str(b.data_domingo).trim();
+    if (!data_domingo) return res.status(400).json({ ok: false, error: "Faltou data_domingo" });
+
+    const payload = {
+      data_domingo,
+      jogadores: getJogadores(true),
+      presencas: getPresencas(data_domingo),
+      escalacao1: getEscalacao(data_domingo, "1T"),
+      escalacao2: getEscalacao(data_domingo, "2T"),
+      saved_at: nowISO(),
+    };
+
+    const id = saveSnapshot(db, "presenca_escalacao", payload);
+    res.json({ ok: true, id });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// alias simples (compatibilidade antiga)
+app.get("/api/presenca", (req, res) => {
+  // antigo: /api/presenca?data_domingo=YYYY-MM-DD -> redireciona
+  const data_domingo = str(req.query.data_domingo).trim();
+  const qs = data_domingo ? `?data_domingo=${encodeURIComponent(data_domingo)}` : "";
+  res.redirect(302, `/api/presenca_escalacao/state${qs}`);
+});
+
+// -------------------- HEALTH --------------------
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {
