@@ -157,9 +157,7 @@
                 <th style="width:60px">ID</th>
                 <th style="width:60px">POS</th>
                 <th>AMARELO</th>
-                <th style="width:70px">SAIU</th>
                 <th>AZUL</th>
-                <th style="width:70px">SAIU</th>
               </tr>
             </thead>
             <tbody id="tbody-2t"></tbody>
@@ -175,263 +173,377 @@
 function pad2(n){ return String(n).padStart(2,"0"); }
 function ymd(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
 function ymdToBr(s){
-  s = String(s||"").trim();
-  if(!s) return "";
-  if(s.includes("/")) return s;
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(m) return `${m[3]}/${m[2]}/${m[1]}`;
-  return s;
+  if (!s) return "";
+  const m = String(s).match(/(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
 }
-function nowHHMM(){
-  const d = new Date();
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-function proximoDomingoISO(){
-  const d = new Date();
-  const add = (7 - d.getDay()) % 7;
-  d.setDate(d.getDate() + add);
-  return ymd(d);
-}
-async function fetchJSON(url, opt){
-  const r = await fetch(url, opt || {});
-  const txt = await r.text();
-  let j = null;
-  try { j = JSON.parse(txt); } catch(e) {}
-  return { ok: r.ok, status: r.status, json: j, text: txt };
-}
-function alertApiErro(titulo, res){
-  const head = (res && res.text) ? res.text.slice(0,120) : "";
-  alert(`${titulo}\nHTTP ${res.status}\n${head}`);
+function nextSunday(d){
+  const x = new Date(d);
+  const dow = x.getDay();
+  const add = (7 - dow) % 7;
+  x.setDate(x.getDate() + add);
+  x.setHours(0,0,0,0);
+  return x;
 }
 
-/* ===== relógios ===== */
-setInterval(() => {
-  const hhmm = nowHHMM();
-  const a1 = document.getElementById("agora-1t");
-  const a2 = document.getElementById("agora-2t");
-  if(a1) a1.textContent = `Hora agora: ${hhmm}`;
-  if(a2) a2.textContent = `Hora agora: ${hhmm}`;
-}, 500);
+/* ===== API ===== */
+const API = "/api/presenca_escalacao";
 
-/* ===== estado ===== */
+async function jget(url){
+  const r = await fetch(url, { cache: "no-store" });
+  const t = await r.text();
+  let j;
+  try { j = JSON.parse(t); } catch { j = { ok:false, error:`Resposta nao-JSON: ${t.slice(0,160)}` }; }
+  if (!r.ok) throw new Error(j.error || `${r.status} ${r.statusText}`);
+  if (!j.ok) throw new Error(j.error || "erro");
+  return j;
+}
+
+async function jpost(url, body){
+  const r = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body||{}) });
+  const t = await r.text();
+  let j;
+  try { j = JSON.parse(t); } catch { j = { ok:false, error:`Resposta nao-JSON: ${t.slice(0,160)}` }; }
+  if (!r.ok) throw new Error(j.error || `${r.status} ${r.statusText}`);
+  if (!j.ok) throw new Error(j.error || "erro");
+  return j;
+}
+
+/* ===== state ===== */
 let STATE = null;
 
-/* ===== carregar jogadores ===== */
-async function carregarJogadores(){
-  const status = document.getElementById("status-jogadores");
-  const tbody = document.getElementById("tbody-jogadores-todos");
-  const total = document.getElementById("total-jogadores");
+function nowLocalISO(){
+  const d = new Date();
+  const tz = -d.getTimezoneOffset();
+  const sgn = tz >= 0 ? "+" : "-";
+  const hh = pad2(Math.floor(Math.abs(tz)/60));
+  const mm = pad2(Math.abs(tz)%60);
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}${sgn}${hh}:${mm}`;
+}
 
-  status.textContent = "Carregando jogadores...";
-  tbody.innerHTML = "";
+function setClock(){
+  const d = new Date();
+  const hhmm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const el1 = document.getElementById("agora-1t");
+  const el2 = document.getElementById("agora-2t");
+  if (el1) el1.textContent = `Hora agora: ${hhmm}`;
+  if (el2) el2.textContent = `Hora agora: ${hhmm}`;
+}
 
-  const res = await fetchJSON("/api/jogadores");
-  if(!res.ok || !res.json){
-    status.textContent = "ERRO: /api/jogadores não retornou JSON.";
-    return;
+function setMsgOk(txt){
+  const el = document.getElementById("msg");
+  if (!el) return;
+  el.innerHTML = `<span style="color:#22c55e;font-weight:bold">OK:</span> ${txt}`;
+}
+
+function setMsgErr(txt){
+  const el = document.getElementById("msg");
+  if (!el) return;
+  el.innerHTML = `<span style="color:#ef4444;font-weight:bold">ERRO:</span> ${txt}`;
+}
+
+function getDataDomingo(){
+  const el = document.getElementById("data_domingo");
+  const s = (el && el.value ? el.value : "").trim();
+  if (s) return s;
+  return ymd(nextSunday(new Date()));
+}
+
+function idMapByApelido(){
+  const m = new Map();
+  const jogadores = (STATE && STATE.jogadores) ? STATE.jogadores : [];
+  jogadores.forEach(j => m.set(String(j.apelido||""), j.id));
+  return m;
+}
+
+function saiuMap(){
+  const m = new Map();
+  const pres = (STATE && (STATE.presencas || STATE.presenca)) ? (STATE.presencas || STATE.presenca) : [];
+  pres.forEach(p => m.set(String(p.apelido||""), !!p.saiu));
+  return m;
+}
+
+function chooseN(total){
+  if (total >= 20) return 10;
+  if (total >= 18) return 9;
+  return 8;
+}
+
+async function loadAll(){
+  try {
+    setClock();
+    const data_domingo = getDataDomingo();
+    document.getElementById("data_domingo").value = data_domingo;
+    document.getElementById("data_br").value = ymdToBr(data_domingo);
+
+    const url = `${API}/state?data_domingo=${encodeURIComponent(data_domingo)}&now_local=${encodeURIComponent(nowLocalISO())}`;
+    const j = await jget(url);
+    STATE = j;
+
+    const pres = (j.presencas || j.presenca || []);
+    document.getElementById("presentesCount").textContent = `Presentes hoje: ${pres.length}`;
+
+    renderJogadores();
+    renderPresencas();
+    renderEscalacao("1T");
+    renderEscalacao("2T");
+
+    setMsgOk(`lista carregada. (Domingo: ${data_domingo})`);
+  } catch(e){
+    setMsgErr(String(e.message || e));
   }
+}
 
-  const itens = res.json.items || res.json.jogadores || res.json.data || [];
-  itens.forEach(j => {
+function renderJogadores(){
+  const tbody = document.getElementById("tbodyJogadores");
+  tbody.innerHTML = "";
+  const jogadores = (STATE && STATE.jogadores) ? STATE.jogadores : [];
+
+  jogadores.forEach(j => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${j.id ?? ""}</td>
-      <td style="text-align:left;padding-left:8px">${(j.apelido ?? "").toString().toUpperCase()}</td>
-      <td><button class="btn-chegou" data-id="${j.id}">CHEGOU AGORA</button></td>
+      <td style="width:60px">${j.id||""}</td>
+      <td>${j.apelido||""}</td>
+      <td style="width:140px"><button class="btn-primario" data-id="${j.id}">CHEGOU AGORA</button></td>
     `;
+    tr.querySelector("button").addEventListener("click", async () => {
+      try {
+        const data_domingo = getDataDomingo();
+        await jpost(`${API}/chegou`, { id: j.id, data_domingo, now_local: nowLocalISO() });
+        await loadAll();
+      } catch(e){ setMsgErr(String(e.message||e)); }
+    });
     tbody.appendChild(tr);
   });
 
-  total.textContent = `TOTAL DE JOGADORES: ${itens.length}`;
-
-  tbody.querySelectorAll("button[data-id]").forEach(btn => {
-    btn.onclick = async () => {
-      const id = btn.getAttribute("data-id");
-      const data_domingo = proximoDomingoISO();
-      const body = { id: Number(id), data_domingo, hora: nowHHMM() };
-      const r = await fetchJSON("/api/presenca_escalacao/chegou", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify(body)
-      });
-      if(!r.ok || !r.json || r.json.ok !== true){
-        alertApiErro("Erro ao marcar CHEGOU.", r);
-        return;
-      }
-      await carregarState();
-    };
-  });
-
-  status.textContent = "Base carregada.";
+  document.getElementById("totalJogadores").textContent = `TOTAL DE JOGADORES: ${jogadores.length}`;
 }
 
-/* ===== carregar presença (state) ===== */
-async function carregarState(){
-  const status = document.getElementById("status-presenca");
-  const data_domingo = proximoDomingoISO();
-  document.getElementById("data-jogo-box").textContent = `Data do jogo: ${ymdToBr(data_domingo)}`;
-
-  status.textContent = "Carregando...";
-  const url = `/api/presenca_escalacao/state?data_domingo=${encodeURIComponent(data_domingo)}&now_local=${encodeURIComponent(ymd(new Date())+" "+nowHHMM())}`;
-  const res = await fetchJSON(url);
-  if(!res.ok || !res.json || res.json.ok !== true){
-    status.textContent = "ERRO: state não retornou JSON ok.";
-    return;
-  }
-
-  STATE = res.json;
-
-  // render presença
-  const tbody = document.getElementById("tbody-presenca");
+function renderPresencas(){
+  const tbody = document.getElementById("tbodyPresenca");
   tbody.innerHTML = "";
-  const lista = (STATE.presenca || STATE.data?.presenca || STATE.jogadores_presenca || []);
-  status.textContent = `Presentes hoje: ${lista.length} (Domingo: ${data_domingo})`;
+  const pres = (STATE && (STATE.presencas || STATE.presenca)) ? (STATE.presencas || STATE.presenca) : [];
 
-  lista.forEach((p, idx) => {
-    const naoVai = !!(p.nao_vai_jogar || p.naoVaiJogar || p.nao_joga);
+  pres.forEach(p => {
+    const nao = !!p.nao_joga;
     const tr = document.createElement("tr");
-    if(naoVai) tr.classList.add("riscado");
+    if (nao) tr.style.opacity = "0.75";
     tr.innerHTML = `
-      <td>${p.id ?? ""}</td>
-      <td>${p.ordem ?? (idx+1)}</td>
-      <td style="text-align:left;padding-left:8px">${(p.apelido ?? "").toString().toUpperCase()}</td>
-      <td>${p.hora ?? ""}</td>
-      <td>${p.obs ?? ""}</td>
-      <td><button class="btn-nao-joga" data-id="${p.id}">${naoVai ? "NÃO VAI JOGAR" : "NÃO VAI JOGAR"}</button></td>
-      <td><button class="btn-excluir" data-id="${p.id}">EXCLUIR</button></td>
+      <td style="width:60px">${p.id||""}</td>
+      <td style="width:70px">${p.ordem||""}</td>
+      <td>${p.apelido||""}</td>
+      <td style="width:80px">${p.hora||""}</td>
+      <td>${p.obs||""}</td>
+      <td style="width:170px"><button class="btn-neutro" data-id="${p.id}">${nao ? "NÃO JOGA" : "NÃO VAI JOGAR"}</button></td>
+      <td style="width:110px"><button class="btn-excluir" data-id="${p.id}">EXCLUIR</button></td>
     `;
+
+    const btnNJ = tr.querySelectorAll("button")[0];
+    const btnEX = tr.querySelectorAll("button")[1];
+
+    btnNJ.addEventListener("click", async () => {
+      try {
+        const data_domingo = getDataDomingo();
+        await jpost(`${API}/toggle_nao_joga`, { id: p.id, data_domingo });
+        await loadAll();
+      } catch(e){ setMsgErr(String(e.message||e)); }
+    });
+
+    btnEX.addEventListener("click", async () => {
+      try {
+        const data_domingo = getDataDomingo();
+        await jpost(`${API}/remove`, { id: p.id, data_domingo });
+        await loadAll();
+      } catch(e){ setMsgErr(String(e.message||e)); }
+    });
+
     tbody.appendChild(tr);
   });
+}
 
-  // bind NÃO VAI JOGAR
-  tbody.querySelectorAll(".btn-nao-joga").forEach(btn => {
-    btn.onclick = async () => {
-      const id = Number(btn.getAttribute("data-id"));
-      const data_domingo = proximoDomingoISO();
+function renderEscalacao(tempo){
+  const tbody = document.getElementById(tempo === "1T" ? "tbody-1t" : "tbody-2t");
+  tbody.innerHTML = "";
 
-      const r = await fetchJSON("/api/presenca_escalacao/toggle_nao_joga", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ id, data_domingo })
+  const idMap = idMapByApelido();
+  const saiu = saiuMap();
+
+  const arr = tempo === "1T" ? (STATE?.escalacao1 || []) : (STATE?.escalacao2 || []);
+  const amarelo = arr.filter(x => String(x.time||"").toUpperCase() === "AMARELO").sort((a,b)=>Number(a.pos||0)-Number(b.pos||0));
+  const azul = arr.filter(x => String(x.time||"").toUpperCase() === "AZUL").sort((a,b)=>Number(a.pos||0)-Number(b.pos||0));
+
+  const n = chooseN(amarelo.length + azul.length);
+
+  for (let i=1; i<=n; i++){
+    const a = amarelo[i-1];
+    const b = azul[i-1];
+    const aAp = a?.apelido || "";
+    const bAp = b?.apelido || "";
+
+    const tr = document.createElement("tr");
+
+    if (tempo === "1T"){
+      tr.innerHTML = `
+        <td style="width:60px">${aAp ? (idMap.get(aAp) || "") : ""}</td>
+        <td style="width:60px">${i}</td>
+        <td style="color:#fbbf24;font-weight:700">${aAp}</td>
+        <td style="width:70px">
+          <button class="btn-saiu" ${aAp?"":"disabled"} data-apelido="${aAp}">${saiu.get(aAp)?"SAIU":"SAIU"}</button>
+        </td>
+        <td style="color:#60a5fa;font-weight:700">${bAp}</td>
+        <td style="width:70px">
+          <button class="btn-saiu" ${bAp?"":"disabled"} data-apelido="${bAp}">${saiu.get(bAp)?"SAIU":"SAIU"}</button>
+        </td>
+      `;
+
+      tr.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const ap = btn.getAttribute("data-apelido");
+          if (!ap) return;
+          try {
+            const data_domingo = getDataDomingo();
+            await jpost(`${API}/toggle_saiu`, { apelido: ap, data_domingo });
+            await loadAll();
+          } catch(e){ setMsgErr(String(e.message||e)); }
+        });
       });
+    } else {
+      tr.innerHTML = `
+        <td style="width:60px">${aAp ? (idMap.get(aAp) || "") : ""}</td>
+        <td style="width:60px">${i}</td>
+        <td style="color:#fbbf24;font-weight:700">${aAp}</td>
+        <td style="color:#60a5fa;font-weight:700">${bAp}</td>
+      `;
+    }
 
-      if(!r.ok || !r.json || r.json.ok !== true){
-        alertApiErro("Erro ao alterar NÃO VAI JOGAR.", r);
-        return;
-      }
-      await carregarState();
-    };
-  });
-
-  // bind EXCLUIR
-  tbody.querySelectorAll(".btn-excluir").forEach(btn => {
-    btn.onclick = async () => {
-      const id = Number(btn.getAttribute("data-id"));
-      const data_domingo = proximoDomingoISO();
-
-      const r = await fetchJSON("/api/presenca_escalacao/remove", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ id, data_domingo })
-      });
-
-      if(!r.ok || !r.json || r.json.ok !== true){
-        alertApiErro("Erro ao excluir.", r);
-        return;
-      }
-      await carregarState();
-    };
-  });
+    tbody.appendChild(tr);
+  }
 }
 
-/* ===== PDF REAL PRESENÇA (jsPDF autoTable) ===== */
-function pdfFileName(prefix){
-  const d = ymdToBr(proximoDomingoISO()).replaceAll("/","-");
-  return `${prefix}_${d}.pdf`;
+/* ===== eventos ===== */
+document.getElementById("data_br").addEventListener("change", () => {
+  const v = document.getElementById("data_br").value.trim();
+  const m = v.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) document.getElementById("data_domingo").value = `${m[3]}-${m[2]}-${m[1]}`;
+});
+
+document.getElementById("btn-limpar").addEventListener("click", async () => {
+  try {
+    const data_domingo = getDataDomingo();
+    await jpost(`${API}/limpar`, { data_domingo });
+    await loadAll();
+  } catch(e){ setMsgErr(String(e.message||e)); }
+});
+
+document.getElementById("btn-escalar-1t").addEventListener("click", async () => {
+  try {
+    const data_domingo = getDataDomingo();
+    await jpost(`${API}/escalar_1t`, { data_domingo, now_local: nowLocalISO() });
+    await loadAll();
+  } catch(e){ setMsgErr(String(e.message||e)); }
+});
+
+document.getElementById("btn-desfazer-1t").addEventListener("click", async () => {
+  try {
+    const data_domingo = getDataDomingo();
+    await jpost(`${API}/desfazer_1t`, { data_domingo });
+    await loadAll();
+  } catch(e){ setMsgErr(String(e.message||e)); }
+});
+
+document.getElementById("btn-escalar-2t").addEventListener("click", async () => {
+  try {
+    const data_domingo = getDataDomingo();
+    await jpost(`${API}/escalar_2t`, { data_domingo, now_local: nowLocalISO() });
+    await loadAll();
+  } catch(e){ setMsgErr(String(e.message||e)); }
+});
+
+document.getElementById("btn-desfazer-2t").addEventListener("click", async () => {
+  try {
+    const data_domingo = getDataDomingo();
+    await jpost(`${API}/desfazer_2t`, { data_domingo });
+    await loadAll();
+  } catch(e){ setMsgErr(String(e.message||e)); }
+});
+
+document.getElementById("btn-salvar").addEventListener("click", async () => {
+  try {
+    const data_domingo = getDataDomingo();
+    await jpost(`${API}/salvar`, { data_domingo });
+    setMsgOk("salvo");
+  } catch(e){ setMsgErr(String(e.message||e)); }
+});
+
+/* ===== PDF (jsPDF - arquivo real) ===== */
+function pdfDocLandscape(){
+  return new jspdf.jsPDF({orientation:"landscape", unit:"pt", format:"a4"});
 }
-function baixarPDFPresencaReal(){
-  if(!window.jspdf || !window.jspdf.jsPDF){
-    alert("PDF: biblioteca não carregou (jsPDF).");
-    return;
-  }
-  const doc = new window.jspdf.jsPDF({ orientation:"p", unit:"pt", format:"a4" });
 
-  const data_domingo = proximoDomingoISO();
-  doc.setFont("helvetica","bold");
-  doc.setFontSize(12);
-  doc.text(`PRESENÇA - DOMINGO ${ymdToBr(data_domingo)}`, 40, 40);
-
-  const lista = (STATE && (STATE.presenca || STATE.data?.presenca || [])) || [];
-  const rows = lista.map((p, i) => ([
-    String(p.id ?? ""),
-    String(p.ordem ?? (i+1)),
-    String((p.apelido ?? "")).toUpperCase(),
-    String(p.hora ?? ""),
-    String(p.obs ?? ""),
-    (p.nao_vai_jogar || p.naoVaiJogar || p.nao_joga) ? "SIM" : ""
-  ]));
-
-  doc.autoTable({
-    startY: 60,
-    head: [["ID","ORDEM","APELIDO","HORA","OBS","NÃO VAI JOGAR"]],
-    body: rows,
-    styles: { fontSize: 8, cellPadding: 3 },
-    headStyles: { fillColor: [240,240,240], textColor: [0,0,0] }
-  });
-
-  doc.save(pdfFileName("TESOURA-PRESENCA"));
+function buildPresencaRows(){
+  const pres = (STATE && (STATE.presencas || STATE.presenca)) ? (STATE.presencas || STATE.presenca) : [];
+  return pres.map(p => [p.ordem||"", p.apelido||"", p.hora||"", p.obs||"", p.nao_joga?"SIM":""]); 
 }
 
-/* ===== botões topo ===== */
-document.getElementById("btn-baixar-presenca").onclick = baixarPDFPresencaReal;
-
-document.getElementById("btn-escalar-1t").onclick = async () => {
-  const data_domingo = proximoDomingoISO();
-  const r = await fetchJSON("/api/presenca_escalacao/escalar_1t", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ data_domingo })
-  });
-  if(!r.ok || !r.json || r.json.ok !== true){
-    alertApiErro("Erro ao escalar 1º tempo.", r);
-    return;
+function buildEscalacaoRows(tempo){
+  const arr = tempo === "1T" ? (STATE?.escalacao1 || []) : (STATE?.escalacao2 || []);
+  const amarelo = arr.filter(x => String(x.time||"").toUpperCase() === "AMARELO").sort((a,b)=>Number(a.pos||0)-Number(b.pos||0));
+  const azul = arr.filter(x => String(x.time||"").toUpperCase() === "AZUL").sort((a,b)=>Number(a.pos||0)-Number(b.pos||0));
+  const n = chooseN(amarelo.length + azul.length);
+  const rows = [];
+  for (let i=1;i<=n;i++){
+    rows.push([String(i), amarelo[i-1]?.apelido||"", azul[i-1]?.apelido||""]);
   }
-  await carregarState();
-};
+  return rows;
+}
 
-document.getElementById("btn-desfazer-1t").onclick = async () => {
-  const data_domingo = proximoDomingoISO();
-  const r = await fetchJSON("/api/presenca_escalacao/desfazer_1t", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ data_domingo })
-  });
-  if(!r.ok || !r.json || r.json.ok !== true){
-    alertApiErro("Erro ao desfazer 1º tempo.", r);
-    return;
-  }
-  await carregarState();
-};
+document.getElementById("btn-baixar-presenca").addEventListener("click", () => {
+  try {
+    const data_domingo = getDataDomingo();
+    const doc = pdfDocLandscape();
+    doc.text(`PRESENÇA - ${ymdToBr(data_domingo)}`, 40, 40);
+    doc.autoTable({
+      head: [["ORDEM","APELIDO","HORA","OBS","NÃO VAI JOGAR"]],
+      body: buildPresencaRows(),
+      startY: 60,
+      styles: { fontSize: 10 }
+    });
+    doc.save(`presenca_${data_domingo}.pdf`);
+  } catch(e){ setMsgErr(String(e.message||e)); }
+});
 
-document.getElementById("btn-limpar-hoje").onclick = async () => {
-  const data_domingo = proximoDomingoISO();
-  const r = await fetchJSON("/api/presenca_escalacao/limpar", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ data_domingo })
-  });
-  if(!r.ok || !r.json || r.json.ok !== true){
-    alertApiErro("Erro ao limpar hoje.", r);
-    return;
-  }
-  await carregarState();
-};
+document.getElementById("btn-baixar-1t").addEventListener("click", () => {
+  try {
+    const data_domingo = getDataDomingo();
+    const doc = pdfDocLandscape();
+    doc.text(`ESCALAÇÃO 1º TEMPO - ${ymdToBr(data_domingo)}`, 40, 40);
+    doc.autoTable({
+      head: [["POS","AMARELO","AZUL"]],
+      body: buildEscalacaoRows("1T"),
+      startY: 60,
+      styles: { fontSize: 10 }
+    });
+    doc.save(`escalacao_1T_${data_domingo}.pdf`);
+  } catch(e){ setMsgErr(String(e.message||e)); }
+});
 
-/* ===== init ===== */
-(async () => {
-  await carregarJogadores();
-  await carregarState();
-})();
+document.getElementById("btn-baixar-2t").addEventListener("click", () => {
+  try {
+    const data_domingo = getDataDomingo();
+    const doc = pdfDocLandscape();
+    doc.text(`ESCALAÇÃO 2º TEMPO - ${ymdToBr(data_domingo)}`, 40, 40);
+    doc.autoTable({
+      head: [["POS","AMARELO","AZUL"]],
+      body: buildEscalacaoRows("2T"),
+      startY: 60,
+      styles: { fontSize: 10 }
+    });
+    doc.save(`escalacao_2T_${data_domingo}.pdf`);
+  } catch(e){ setMsgErr(String(e.message||e)); }
+});
+
+setInterval(setClock, 1000);
+loadAll();
 </script>
 
 </body>

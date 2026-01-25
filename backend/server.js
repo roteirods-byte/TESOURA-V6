@@ -219,6 +219,17 @@ function getJogadores(onlyAtivos = true) {
   return db.prepare(sql).all();
 }
 
+function getApelidoFromId(id) {
+  const n = Number(id);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  try {
+    const row = db.prepare(`SELECT apelido FROM jogadores WHERE id=?`).get(n);
+    return row ? str(row.apelido).trim() : "";
+  } catch {
+    return "";
+  }
+}
+
 app.get("/api/jogadores", (req, res) => {
   try {
     const all = str(req.query.all).trim() === "1";
@@ -228,6 +239,9 @@ app.get("/api/jogadores", (req, res) => {
     res.status(400).json({ ok: false, error: String(e.message || e) });
   }
 });
+
+// ===== compat: algumas telas chamam com barra no final =====
+app.all("/api/jogadores/", (req, res) => res.redirect(308, "/api/jogadores"));
 
 app.post("/api/jogadores", (req, res) => {
   try {
@@ -428,7 +442,8 @@ app.get("/api/presenca_escalacao/state", (req, res) => {
     const pagoMap = {};
     jogadores.forEach(j => { pagoMap[j.apelido] = 1; });
 
-    res.json({ ok: true, jogadores, presencas, escalacao1, escalacao2, pagoMap });
+    // compat: algumas telas antigas esperam "presenca" (sem s)
+    res.json({ ok: true, data_domingo, jogadores, presencas, presenca: presencas, escalacao1, escalacao2, pagoMap });
   } catch (e) {
     res.status(400).json({ ok: false, error: String(e.message || e) });
   }
@@ -438,8 +453,8 @@ app.post("/api/presenca_escalacao/chegou", (req, res) => {
   try {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
-    const apelido = str(b.apelido).trim();
-    const now_local = str(b.now_local).trim();
+    const apelido = str(b.apelido).trim() || getApelidoFromId(b.id);
+    const now_local = str(b.now_local).trim() || str(b.hora).trim();
     if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
 
     setPresencaChegou(data_domingo, apelido, now_local);
@@ -453,7 +468,7 @@ app.post("/api/presenca_escalacao/toggle_nao_joga", (req, res) => {
   try {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
-    const apelido = str(b.apelido).trim();
+    const apelido = str(b.apelido).trim() || getApelidoFromId(b.id);
     if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
 
     const row = db.prepare(`SELECT id, COALESCE(nao_joga,0) AS nao_joga FROM presencas WHERE data_domingo=? AND apelido=?`).get(data_domingo, apelido);
@@ -472,7 +487,7 @@ app.post("/api/presenca_escalacao/toggle_saiu", (req, res) => {
   try {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
-    const apelido = str(b.apelido).trim();
+    const apelido = str(b.apelido).trim() || getApelidoFromId(b.id);
     if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
 
     const row = db.prepare(`SELECT id, COALESCE(saiu,0) AS saiu FROM presencas WHERE data_domingo=? AND apelido=?`).get(data_domingo, apelido);
@@ -491,7 +506,7 @@ app.post("/api/presenca_escalacao/remover", (req, res) => {
   try {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
-    const apelido = str(b.apelido).trim();
+    const apelido = str(b.apelido).trim() || getApelidoFromId(b.id);
     if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
 
     db.prepare(`DELETE FROM presencas WHERE data_domingo=? AND apelido=?`).run(data_domingo, apelido);
@@ -572,6 +587,68 @@ app.post("/api/presenca_escalacao/salvar", (req, res) => {
   }
 });
 
+// ===== compat antiga do frontend (endpoints e payloads) =====
+app.post("/api/presenca_escalacao/remove", (req, res) => {
+  try {
+    const b = req.body || {};
+    const data_domingo = str(b.data_domingo).trim();
+    const apelido = str(b.apelido).trim() || getApelidoFromId(b.id);
+    if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
+    db.prepare(`DELETE FROM presencas WHERE data_domingo=? AND apelido=?`).run(data_domingo, apelido);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post("/api/presenca_escalacao/escalar_1t", (req, res) => {
+  try {
+    const b = req.body || {};
+    const data_domingo = str(b.data_domingo).trim();
+    if (!data_domingo) return res.status(400).json({ ok: false, error: "Faltou data_domingo" });
+    computeEscalacao(data_domingo, "1T");
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post("/api/presenca_escalacao/escalar_2t", (req, res) => {
+  try {
+    const b = req.body || {};
+    const data_domingo = str(b.data_domingo).trim();
+    if (!data_domingo) return res.status(400).json({ ok: false, error: "Faltou data_domingo" });
+    computeEscalacao(data_domingo, "2T");
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post("/api/presenca_escalacao/desfazer_1t", (req, res) => {
+  try {
+    const b = req.body || {};
+    const data_domingo = str(b.data_domingo).trim();
+    if (!data_domingo) return res.status(400).json({ ok: false, error: "Faltou data_domingo" });
+    db.prepare(`DELETE FROM escalacoes WHERE data_domingo=? AND tempo='1T'`).run(data_domingo);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post("/api/presenca_escalacao/desfazer_2t", (req, res) => {
+  try {
+    const b = req.body || {};
+    const data_domingo = str(b.data_domingo).trim();
+    if (!data_domingo) return res.status(400).json({ ok: false, error: "Faltou data_domingo" });
+    db.prepare(`DELETE FROM escalacoes WHERE data_domingo=? AND tempo='2T'`).run(data_domingo);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
 // alias simples (compatibilidade antiga)
 app.get("/api/presenca", (req, res) => {
   // antigo: /api/presenca?data_domingo=YYYY-MM-DD -> redireciona
@@ -582,6 +659,12 @@ app.get("/api/presenca", (req, res) => {
 
 // -------------------- HEALTH --------------------
 app.get("/api/health", (req, res) => res.json({ ok: true }));
+
+// ===== stubs defensivos (evita 404 no frontend enquanto estes painéis não forem revisados) =====
+app.get("/api/controle_geral/historico", (req, res) => res.json({ ok: true, itens: [] }));
+app.get("/api/mensalidade/historico", (req, res) => res.json({ ok: true, itens: [] }));
+app.get("/api/caixa/historico", (req, res) => res.json({ ok: true, itens: [] }));
+app.get("/api/gols/historico", (req, res) => res.json({ ok: true, itens: [] }));
 
 app.listen(PORT, () => {
   console.log("TESOURA API rodando na porta", PORT, "DB:", DB_PATH);
