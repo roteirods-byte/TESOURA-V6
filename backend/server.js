@@ -7,6 +7,7 @@ const cors = require("cors");
 const Database = require("better-sqlite3");
 
 const { saveSnapshot, listSnapshots, loadSnapshot } = require("./modules/_core/archive");
+const { htmlToPdfBuffer } = require("./modules/_core/pdf");
 
 /**
  * TESOURA V6 — Backend estável (GitHub-first)
@@ -230,7 +231,7 @@ function getApelidoFromId(id) {
   }
 }
 
-app.get("/api/jogadores", (req, res) => {
+app.get(/^\/api\/jogadores\/?$/, (req, res) => {
   try {
     const all = str(req.query.all).trim() === "1";
     const jogadores = getJogadores(!all);
@@ -401,29 +402,47 @@ function getEscalacao(data_domingo, tempo) {
   `).all(data_domingo, tempo);
 }
 
+function chooseTeamSize(total) {
+  if (total >= 20) return 10;
+  if (total >= 18) return 9;
+  if (total >= 16) return 8;
+  // se tiver menos que 16, ainda escala o que der (pode ficar com linhas vazias no painel)
+  return Math.max(1, Math.floor(total / 2));
+}
+
 function computeEscalacao(data_domingo, tempo) {
-  // candidatos elegíveis (nao_joga=0)
   const pres = getPresencas(data_domingo);
+  const elegiveis = pres.filter(p => !p.nao_joga && !p.saiu);
 
-  const elegiveis = pres.filter(p => !p.nao_joga);
-  const apelidos1T = new Set(getEscalacao(data_domingo, "1T").map(x => x.apelido));
+  // quem jogou 1T (para priorizar no 2T)
+  const played1T = new Set(getEscalacao(data_domingo, "1T").map(x => x.apelido));
 
-  let candidatos = elegiveis;
-
+  let candidatos = elegiveis.slice();
   if (tempo === "2T") {
-    // prioridade: quem NÃO jogou 1T
-    const a = elegiveis.filter(p => !apelidos1T.has(p.apelido) && !p.saiu);
-    const b = elegiveis.filter(p => apelidos1T.has(p.apelido) && !p.saiu);
-    candidatos = a.concat(b);
+    // prioridade: quem NÃO jogou 1T, depois quem jogou 1T
+    candidatos.sort((a, b) => {
+      const pa = played1T.has(a.apelido) ? 1 : 0;
+      const pb = played1T.has(b.apelido) ? 1 : 0;
+      if (pa != pb) return pa - pb;
+      return (a.ordem || 0) - (b.ordem || 0);
+    });
   }
 
-  const escolhidos = candidatos.slice(0, 20).map(x => x.apelido);
+  const nTeam = chooseTeamSize(candidatos.length);
+  const need = nTeam * 2;
+  const escolhidos = candidatos.slice(0, need).map(x => x.apelido);
 
   const del = db.prepare(`DELETE FROM escalacoes WHERE data_domingo=? AND tempo=?`);
-  const ins = db.prepare(`INSERT INTO escalacoes (data_domingo, tempo, pos, apelido, time, created_at) VALUES (?, ?, ?, ?, '', ?)`);
+  const ins = db.prepare(`INSERT INTO escalacoes (data_domingo, tempo, pos, time, apelido, created_at) VALUES (?, ?, ?, ?, ?, ?)`);
+
   const tx = db.transaction(() => {
     del.run(data_domingo, tempo);
-    escolhidos.forEach((apelido, i) => ins.run(data_domingo, tempo, i + 1, apelido, nowISO()));
+    for (let pos = 1; pos <= nTeam; pos++) {
+      const a = escolhidos[(pos - 1) * 2];
+      const z = escolhidos[(pos - 1) * 2 + 1];
+      if (a) ins.run(data_domingo, tempo, pos, 'AMARELO', a, nowISO());
+      if (z) ins.run(data_domingo, tempo, pos, 'AZUL', z, nowISO());
+    }
   });
   tx();
 }
@@ -668,4 +687,22 @@ app.get("/api/gols/historico", (req, res) => res.json({ ok: true, itens: [] }));
 
 app.listen(PORT, () => {
   console.log("TESOURA API rodando na porta", PORT, "DB:", DB_PATH);
+});
+
+
+// PDF (arquivo real) — gera no servidor (não é print)
+app.post("/api/pdf/render", async (req, res) => {
+  try {
+    const b = req.body || {};
+    const html = str(b.html).trim();
+    const filename = (str(b.filename).trim() || "arquivo.pdf").replace(/[^a-zA-Z0-9._-]+/g, "_");
+    if (!html) return res.status(400).json({ ok: false, error: "Faltou html" });
+
+    const buf = await htmlToPdfBuffer(html);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.status(200).send(buf);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e && e.message || e) });
+  }
 });

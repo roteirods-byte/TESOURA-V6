@@ -40,7 +40,8 @@
     @media (max-width: 980px){.grid-escalacao{grid-template-columns:1fr}}
     .grid-escalacao table{table-layout:fixed;}
     .grid-escalacao th,.grid-escalacao td{overflow:hidden;text-overflow:ellipsis;}
-  </style>
+    .clock-mini{margin:6px 0 4px 0;font-size:12px;color:#fff;opacity:0.9;}
+</style>
 
   <!-- PDF REAL (tabela, não print) -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -475,70 +476,80 @@ document.getElementById("btn-salvar").addEventListener("click", async () => {
   } catch(e){ setMsgErr(String(e.message||e)); }
 });
 
-/* ===== PDF (jsPDF - arquivo real) ===== */
-function pdfDocLandscape(){
-  return new jspdf.jsPDF({orientation:"landscape", unit:"pt", format:"a4"});
-}
+/* ===== PDF (arquivo real via API) ===== */
+async function downloadPdf(title, headCols, bodyRows, filename){
+  const data_domingo = getDataDomingo();
+  const safeTitle = title.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const headHtml = headCols.map(c => `<th>${String(c||'')}</th>`).join('');
+  const rowsHtml = bodyRows.map(r => `<tr>${r.map(c => `<td>${String(c??'')}</td>`).join('')}</tr>`).join('');
+  const html = `<!doctype html><html><head><meta charset="utf-8" />
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:24px;}
+    h1{font-size:18px;margin:0 0 12px 0;}
+    .meta{font-size:12px;margin:0 0 10px 0;}
+    table{width:100%;border-collapse:collapse;}
+    th,td{border:1px solid #333;padding:6px;font-size:11px;}
+    th{background:#f7931a;color:#000;}
+    .clock-mini{margin:6px 0 4px 0;font-size:12px;color:#fff;opacity:0.9;}
+</style></head><body>
+  <h1>${safeTitle}</h1>
+  <div class="meta">Domingo: ${ymdToBr(data_domingo)}</div>
+  <table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>
+  </body></html>`;
 
-function buildPresencaRows(){
-  const pres = (STATE && (STATE.presencas || STATE.presenca)) ? (STATE.presencas || STATE.presenca) : [];
-  return pres.map(p => [p.ordem||"", p.apelido||"", p.hora||"", p.obs||"", p.nao_joga?"SIM":""]); 
-}
-
-function buildEscalacaoRows(tempo){
-  const arr = tempo === "1T" ? (STATE?.escalacao1 || []) : (STATE?.escalacao2 || []);
-  const amarelo = arr.filter(x => String(x.time||"").toUpperCase() === "AMARELO").sort((a,b)=>Number(a.pos||0)-Number(b.pos||0));
-  const azul = arr.filter(x => String(x.time||"").toUpperCase() === "AZUL").sort((a,b)=>Number(a.pos||0)-Number(b.pos||0));
-  const n = chooseN(amarelo.length + azul.length);
-  const rows = [];
-  for (let i=1;i<=n;i++){
-    rows.push([String(i), amarelo[i-1]?.apelido||"", azul[i-1]?.apelido||""]);
+  const resp = await fetch('/api/pdf/render', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ html, filename })
+  });
+  if (!resp.ok) {
+    const t = await resp.text().catch(()=>'');
+    throw new Error(`PDF: HTTP ${resp.status} ${t}`);
   }
-  return rows;
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
 }
 
-document.getElementById("btn-baixar-presenca").addEventListener("click", () => {
+document.getElementById("btn-baixar-presenca").addEventListener("click", async () => {
   try {
     const data_domingo = getDataDomingo();
-    const doc = pdfDocLandscape();
-    doc.text(`PRESENÇA - ${ymdToBr(data_domingo)}`, 40, 40);
-    doc.autoTable({
-      head: [["ORDEM","APELIDO","HORA","OBS","NÃO VAI JOGAR"]],
-      body: buildPresencaRows(),
-      startY: 60,
-      styles: { fontSize: 10 }
-    });
-    doc.save(`presenca_${data_domingo}.pdf`);
+    await downloadPdf(
+      `PRESENÇA - ${ymdToBr(data_domingo)}`,
+      ["ORDEM","APELIDO","HORA","OBS","NÃO VAI JOGAR"],
+      buildPresencaRows(),
+      `presenca_${data_domingo}.pdf`
+    );
   } catch(e){ setMsgErr(String(e.message||e)); }
 });
 
-document.getElementById("btn-baixar-1t").addEventListener("click", () => {
+document.getElementById("btn-baixar-1t").addEventListener("click", async () => {
   try {
     const data_domingo = getDataDomingo();
-    const doc = pdfDocLandscape();
-    doc.text(`ESCALAÇÃO 1º TEMPO - ${ymdToBr(data_domingo)}`, 40, 40);
-    doc.autoTable({
-      head: [["POS","AMARELO","AZUL"]],
-      body: buildEscalacaoRows("1T"),
-      startY: 60,
-      styles: { fontSize: 10 }
-    });
-    doc.save(`escalacao_1T_${data_domingo}.pdf`);
+    await downloadPdf(
+      `ESCALAÇÃO 1º TEMPO - ${ymdToBr(data_domingo)}`,
+      ["POS","AMARELO","AZUL"],
+      buildEscalacaoRows("1T"),
+      `escalacao_1T_${data_domingo}.pdf`
+    );
   } catch(e){ setMsgErr(String(e.message||e)); }
 });
 
-document.getElementById("btn-baixar-2t").addEventListener("click", () => {
+document.getElementById("btn-baixar-2t").addEventListener("click", async () => {
   try {
     const data_domingo = getDataDomingo();
-    const doc = pdfDocLandscape();
-    doc.text(`ESCALAÇÃO 2º TEMPO - ${ymdToBr(data_domingo)}`, 40, 40);
-    doc.autoTable({
-      head: [["POS","AMARELO","AZUL"]],
-      body: buildEscalacaoRows("2T"),
-      startY: 60,
-      styles: { fontSize: 10 }
-    });
-    doc.save(`escalacao_2T_${data_domingo}.pdf`);
+    await downloadPdf(
+      `ESCALAÇÃO 2º TEMPO - ${ymdToBr(data_domingo)}`,
+      ["POS","AMARELO","AZUL"],
+      buildEscalacaoRows("2T"),
+      `escalacao_2T_${data_domingo}.pdf`
+    );
   } catch(e){ setMsgErr(String(e.message||e)); }
 });
 
