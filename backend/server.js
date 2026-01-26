@@ -7,7 +7,6 @@ const cors = require("cors");
 const Database = require("better-sqlite3");
 
 const { saveSnapshot, listSnapshots, loadSnapshot } = require("./modules/_core/archive");
-const { htmlToPdfBuffer } = require("./modules/_core/pdf");
 
 /**
  * TESOURA V6 — Backend estável (GitHub-first)
@@ -195,10 +194,16 @@ function normalizeApelido(a) {
 }
 function getJogadores(onlyAtivos = true) {
   const cols = tableColumns("jogadores");
-  // compat: alguns bancos antigos usam "pos" em vez de "posicao"
-  const posCol = cols.has("posicao") ? "posicao" : (cols.has("pos") ? "pos" : "posicao");
+
+  // Compat: nomes de colunas variam em bancos antigos
+  const posCol = cols.has("posicao") ? "posicao" : (cols.has("pos") ? "pos" : null);
+  const habCol = cols.has("hab") ? "hab" : (cols.has("habilidade") ? "habilidade" : null);
+  const velCol = cols.has("vel") ? "vel" : (cols.has("velocidade") ? "velocidade" : null);
+  const movCol = cols.has("mov") ? "mov" : (cols.has("movimentacao") ? "movimentacao" : null);
+  const pontosCol = cols.has("pontos") ? "pontos" : null;
 
   const where = onlyAtivos ? "WHERE COALESCE(ativo,1)=1" : "";
+
   const sql = `
     SELECT
       id,
@@ -207,31 +212,22 @@ function getJogadores(onlyAtivos = true) {
       COALESCE(nome,'') AS nome,
       COALESCE(nascimento,'') AS nascimento,
       COALESCE(celular,'') AS celular,
-      COALESCE(${posCol},'') AS posicao,
-      COALESCE(hab,0) AS hab,
-      COALESCE(vel,0) AS vel,
-      COALESCE(mov,0) AS mov,
-      COALESCE(pontos,0) AS pontos,
+      ${posCol ? `COALESCE(${posCol},'')` : "''"} AS posicao,
+      ${habCol ? `COALESCE(${habCol},0)` : "0"} AS hab,
+      ${velCol ? `COALESCE(${velCol},0)` : "0"} AS vel,
+      ${movCol ? `COALESCE(${movCol},0)` : "0"} AS mov,
+      ${pontosCol ? `COALESCE(${pontosCol},0)` : "0"} AS pontos,
       COALESCE(ativo,1) AS ativo
     FROM jogadores
     ${where}
-    ORDER BY LOWER(apelido) ASC
+    ORDER BY LOWER(apelido) ASC, id ASC
   `;
-  return db.prepare(sql).all();
+
+  return dbPrepareAll(sql, {});
 }
 
-function getApelidoFromId(id) {
-  const n = Number(id);
-  if (!Number.isFinite(n) || n <= 0) return "";
-  try {
-    const row = db.prepare(`SELECT apelido FROM jogadores WHERE id=?`).get(n);
-    return row ? str(row.apelido).trim() : "";
-  } catch {
-    return "";
-  }
-}
 
-app.get(/^\/api\/jogadores\/?$/, (req, res) => {
+app.get("/api/jogadores", (req, res) => {
   try {
     const all = str(req.query.all).trim() === "1";
     const jogadores = getJogadores(!all);
@@ -240,9 +236,6 @@ app.get(/^\/api\/jogadores\/?$/, (req, res) => {
     res.status(400).json({ ok: false, error: String(e.message || e) });
   }
 });
-
-// ===== compat: algumas telas chamam com barra no final =====
-app.all("/api/jogadores/", (req, res) => res.redirect(308, "/api/jogadores"));
 
 app.post("/api/jogadores", (req, res) => {
   try {
@@ -402,47 +395,29 @@ function getEscalacao(data_domingo, tempo) {
   `).all(data_domingo, tempo);
 }
 
-function chooseTeamSize(total) {
-  if (total >= 20) return 10;
-  if (total >= 18) return 9;
-  if (total >= 16) return 8;
-  // se tiver menos que 16, ainda escala o que der (pode ficar com linhas vazias no painel)
-  return Math.max(1, Math.floor(total / 2));
-}
-
 function computeEscalacao(data_domingo, tempo) {
+  // candidatos elegíveis (nao_joga=0)
   const pres = getPresencas(data_domingo);
-  const elegiveis = pres.filter(p => !p.nao_joga && !p.saiu);
 
-  // quem jogou 1T (para priorizar no 2T)
-  const played1T = new Set(getEscalacao(data_domingo, "1T").map(x => x.apelido));
+  const elegiveis = pres.filter(p => !p.nao_joga);
+  const apelidos1T = new Set(getEscalacao(data_domingo, "1T").map(x => x.apelido));
 
-  let candidatos = elegiveis.slice();
+  let candidatos = elegiveis;
+
   if (tempo === "2T") {
-    // prioridade: quem NÃO jogou 1T, depois quem jogou 1T
-    candidatos.sort((a, b) => {
-      const pa = played1T.has(a.apelido) ? 1 : 0;
-      const pb = played1T.has(b.apelido) ? 1 : 0;
-      if (pa != pb) return pa - pb;
-      return (a.ordem || 0) - (b.ordem || 0);
-    });
+    // prioridade: quem NÃO jogou 1T
+    const a = elegiveis.filter(p => !apelidos1T.has(p.apelido) && !p.saiu);
+    const b = elegiveis.filter(p => apelidos1T.has(p.apelido) && !p.saiu);
+    candidatos = a.concat(b);
   }
 
-  const nTeam = chooseTeamSize(candidatos.length);
-  const need = nTeam * 2;
-  const escolhidos = candidatos.slice(0, need).map(x => x.apelido);
+  const escolhidos = candidatos.slice(0, 20).map(x => x.apelido);
 
   const del = db.prepare(`DELETE FROM escalacoes WHERE data_domingo=? AND tempo=?`);
-  const ins = db.prepare(`INSERT INTO escalacoes (data_domingo, tempo, pos, time, apelido, created_at) VALUES (?, ?, ?, ?, ?, ?)`);
-
+  const ins = db.prepare(`INSERT INTO escalacoes (data_domingo, tempo, pos, apelido, time, created_at) VALUES (?, ?, ?, ?, '', ?)`);
   const tx = db.transaction(() => {
     del.run(data_domingo, tempo);
-    for (let pos = 1; pos <= nTeam; pos++) {
-      const a = escolhidos[(pos - 1) * 2];
-      const z = escolhidos[(pos - 1) * 2 + 1];
-      if (a) ins.run(data_domingo, tempo, pos, 'AMARELO', a, nowISO());
-      if (z) ins.run(data_domingo, tempo, pos, 'AZUL', z, nowISO());
-    }
+    escolhidos.forEach((apelido, i) => ins.run(data_domingo, tempo, i + 1, apelido, nowISO()));
   });
   tx();
 }
@@ -461,8 +436,7 @@ app.get("/api/presenca_escalacao/state", (req, res) => {
     const pagoMap = {};
     jogadores.forEach(j => { pagoMap[j.apelido] = 1; });
 
-    // compat: algumas telas antigas esperam "presenca" (sem s)
-    res.json({ ok: true, data_domingo, jogadores, presencas, presenca: presencas, escalacao1, escalacao2, pagoMap });
+    res.json({ ok: true, jogadores, presencas, escalacao1, escalacao2, pagoMap });
   } catch (e) {
     res.status(400).json({ ok: false, error: String(e.message || e) });
   }
@@ -472,8 +446,8 @@ app.post("/api/presenca_escalacao/chegou", (req, res) => {
   try {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
-    const apelido = str(b.apelido).trim() || getApelidoFromId(b.id);
-    const now_local = str(b.now_local).trim() || str(b.hora).trim();
+    const apelido = str(b.apelido).trim();
+    const now_local = str(b.now_local).trim();
     if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
 
     setPresencaChegou(data_domingo, apelido, now_local);
@@ -487,7 +461,7 @@ app.post("/api/presenca_escalacao/toggle_nao_joga", (req, res) => {
   try {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
-    const apelido = str(b.apelido).trim() || getApelidoFromId(b.id);
+    const apelido = str(b.apelido).trim();
     if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
 
     const row = db.prepare(`SELECT id, COALESCE(nao_joga,0) AS nao_joga FROM presencas WHERE data_domingo=? AND apelido=?`).get(data_domingo, apelido);
@@ -506,7 +480,7 @@ app.post("/api/presenca_escalacao/toggle_saiu", (req, res) => {
   try {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
-    const apelido = str(b.apelido).trim() || getApelidoFromId(b.id);
+    const apelido = str(b.apelido).trim();
     if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
 
     const row = db.prepare(`SELECT id, COALESCE(saiu,0) AS saiu FROM presencas WHERE data_domingo=? AND apelido=?`).get(data_domingo, apelido);
@@ -525,7 +499,7 @@ app.post("/api/presenca_escalacao/remover", (req, res) => {
   try {
     const b = req.body || {};
     const data_domingo = str(b.data_domingo).trim();
-    const apelido = str(b.apelido).trim() || getApelidoFromId(b.id);
+    const apelido = str(b.apelido).trim();
     if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
 
     db.prepare(`DELETE FROM presencas WHERE data_domingo=? AND apelido=?`).run(data_domingo, apelido);
@@ -606,68 +580,6 @@ app.post("/api/presenca_escalacao/salvar", (req, res) => {
   }
 });
 
-// ===== compat antiga do frontend (endpoints e payloads) =====
-app.post("/api/presenca_escalacao/remove", (req, res) => {
-  try {
-    const b = req.body || {};
-    const data_domingo = str(b.data_domingo).trim();
-    const apelido = str(b.apelido).trim() || getApelidoFromId(b.id);
-    if (!data_domingo || !apelido) return res.status(400).json({ ok: false, error: "Faltou data_domingo/apelido" });
-    db.prepare(`DELETE FROM presencas WHERE data_domingo=? AND apelido=?`).run(data_domingo, apelido);
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(400).json({ ok: false, error: String(e.message || e) });
-  }
-});
-
-app.post("/api/presenca_escalacao/escalar_1t", (req, res) => {
-  try {
-    const b = req.body || {};
-    const data_domingo = str(b.data_domingo).trim();
-    if (!data_domingo) return res.status(400).json({ ok: false, error: "Faltou data_domingo" });
-    computeEscalacao(data_domingo, "1T");
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(400).json({ ok: false, error: String(e.message || e) });
-  }
-});
-
-app.post("/api/presenca_escalacao/escalar_2t", (req, res) => {
-  try {
-    const b = req.body || {};
-    const data_domingo = str(b.data_domingo).trim();
-    if (!data_domingo) return res.status(400).json({ ok: false, error: "Faltou data_domingo" });
-    computeEscalacao(data_domingo, "2T");
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(400).json({ ok: false, error: String(e.message || e) });
-  }
-});
-
-app.post("/api/presenca_escalacao/desfazer_1t", (req, res) => {
-  try {
-    const b = req.body || {};
-    const data_domingo = str(b.data_domingo).trim();
-    if (!data_domingo) return res.status(400).json({ ok: false, error: "Faltou data_domingo" });
-    db.prepare(`DELETE FROM escalacoes WHERE data_domingo=? AND tempo='1T'`).run(data_domingo);
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(400).json({ ok: false, error: String(e.message || e) });
-  }
-});
-
-app.post("/api/presenca_escalacao/desfazer_2t", (req, res) => {
-  try {
-    const b = req.body || {};
-    const data_domingo = str(b.data_domingo).trim();
-    if (!data_domingo) return res.status(400).json({ ok: false, error: "Faltou data_domingo" });
-    db.prepare(`DELETE FROM escalacoes WHERE data_domingo=? AND tempo='2T'`).run(data_domingo);
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(400).json({ ok: false, error: String(e.message || e) });
-  }
-});
-
 // alias simples (compatibilidade antiga)
 app.get("/api/presenca", (req, res) => {
   // antigo: /api/presenca?data_domingo=YYYY-MM-DD -> redireciona
@@ -679,30 +591,6 @@ app.get("/api/presenca", (req, res) => {
 // -------------------- HEALTH --------------------
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-// ===== stubs defensivos (evita 404 no frontend enquanto estes painéis não forem revisados) =====
-app.get("/api/controle_geral/historico", (req, res) => res.json({ ok: true, itens: [] }));
-app.get("/api/mensalidade/historico", (req, res) => res.json({ ok: true, itens: [] }));
-app.get("/api/caixa/historico", (req, res) => res.json({ ok: true, itens: [] }));
-app.get("/api/gols/historico", (req, res) => res.json({ ok: true, itens: [] }));
-
 app.listen(PORT, () => {
   console.log("TESOURA API rodando na porta", PORT, "DB:", DB_PATH);
-});
-
-
-// PDF (arquivo real) — gera no servidor (não é print)
-app.post("/api/pdf/render", async (req, res) => {
-  try {
-    const b = req.body || {};
-    const html = str(b.html).trim();
-    const filename = (str(b.filename).trim() || "arquivo.pdf").replace(/[^a-zA-Z0-9._-]+/g, "_");
-    if (!html) return res.status(400).json({ ok: false, error: "Faltou html" });
-
-    const buf = await htmlToPdfBuffer(html);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    return res.status(200).send(buf);
-  } catch (e) {
-    return res.status(500).json({ ok: false, error: String(e && e.message || e) });
-  }
 });

@@ -41,9 +41,11 @@
     .grid-escalacao table{table-layout:fixed;}
     .grid-escalacao th,.grid-escalacao td{overflow:hidden;text-overflow:ellipsis;}
     .clock-mini{margin:6px 0 4px 0;font-size:12px;color:#fff;opacity:0.9;}
+
+.info-mini{margin:6px 0 8px 0;color:#e5e7eb;font-size:13px;}
 </style>
 
-  <!-- PDF REAL (tabela, não print) -->
+  <!-- PDF REAL (arquivo, não print) -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 </head>
@@ -90,6 +92,7 @@
           <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <button id="btn-limpar-hoje" class="btn-perigo">Limpar hoje</button>
             <button id="btn-escalar-1t" class="btn-primario">Escalar 1º tempo</button>
+          <div id="hora-top" class="info-mini">Hora agora: <span id="hora-top-val">--:--</span></div>
 
             <!-- marcador pedido: acima do desfazer 1T -->
             <div style="display:flex;flex-direction:column;gap:6px">
@@ -227,8 +230,10 @@ function setClock(){
   const hhmm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   const el1 = document.getElementById("agora-1t");
   const el2 = document.getElementById("agora-2t");
+  const elTop = document.getElementById("hora-top-val");
   if (el1) el1.textContent = `Hora agora: ${hhmm}`;
   if (el2) el2.textContent = `Hora agora: ${hhmm}`;
+  if (elTop) elTop.textContent = hhmm;
 }
 
 function setMsgOk(txt){
@@ -477,44 +482,25 @@ document.getElementById("btn-salvar").addEventListener("click", async () => {
 });
 
 /* ===== PDF (arquivo real via API) ===== */
-async function downloadPdf(title, headCols, bodyRows, filename){
-  const data_domingo = getDataDomingo();
-  const safeTitle = title.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const headHtml = headCols.map(c => `<th>${String(c||'')}</th>`).join('');
-  const rowsHtml = bodyRows.map(r => `<tr>${r.map(c => `<td>${String(c??'')}</td>`).join('')}</tr>`).join('');
-  const html = `<!doctype html><html><head><meta charset="utf-8" />
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;margin:24px;}
-    h1{font-size:18px;margin:0 0 12px 0;}
-    .meta{font-size:12px;margin:0 0 10px 0;}
-    table{width:100%;border-collapse:collapse;}
-    th,td{border:1px solid #333;padding:6px;font-size:11px;}
-    th{background:#f7931a;color:#000;}
-    .clock-mini{margin:6px 0 4px 0;font-size:12px;color:#fff;opacity:0.9;}
-</style></head><body>
-  <h1>${safeTitle}</h1>
-  <div class="meta">Domingo: ${ymdToBr(data_domingo)}</div>
-  <table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>
-  </body></html>`;
-
-  const resp = await fetch('/api/pdf/render', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ html, filename })
-  });
-  if (!resp.ok) {
-    const t = await resp.text().catch(()=>'');
-    throw new Error(`PDF: HTTP ${resp.status} ${t}`);
+async function downloadPdf(title, headCols, bodyRows, filename) {
+  // PDF real no navegador (sem print e sem API)
+  const { jsPDF } = window.jspdf || {};
+  if (!jsPDF) {
+    alert("Erro: biblioteca de PDF não carregou.");
+    return;
   }
-  const blob = await resp.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+  doc.setFontSize(14);
+  doc.text(String(title || "TESOURA"), 40, 40);
+  doc.setFontSize(10);
+  doc.autoTable({
+    startY: 60,
+    head: [headCols],
+    body: bodyRows,
+    styles: { fontSize: 9, cellPadding: 3 },
+    headStyles: { fillColor: [255, 127, 0] },
+  });
+  doc.save(filename || "tesoura.pdf");
 }
 
 document.getElementById("btn-baixar-presenca").addEventListener("click", async () => {
