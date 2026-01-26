@@ -1,0 +1,24 @@
+name: Deploy TESOURA-V6 na VM (tesoura-sql)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH (git reset + restart)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.TESOURA_VM_HOST }}
+          username: ${{ secrets.TESOURA_VM_USER }}
+          key: ${{ secrets.TESOURA_VM_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            cd /home/roteiro_ds/tesoura-v6
+            git fetch --all
+            git reset --hard origin/main
+            sudo systemctl restart tesoura-api.service
+            sudo nginx -s reload
+            echo "DEPLOY_OK"
