@@ -48,6 +48,38 @@
   <!-- PDF REAL (arquivo, não print) -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+<script>
+  // Helpers (defensivos)
+  async function apiGetJson(url) {
+    const resp = await fetch(url, { cache: "no-store" });
+    const text = await resp.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch (_) {}
+    if (!resp.ok) {
+      const msg = data?.error ? String(data.error) : (text || `HTTP ${resp.status}`);
+      throw new Error(msg);
+    }
+    return data;
+  }
+  function byId(id){ return document.getElementById(id); }
+  function ymdToBr(ymd){
+    if(!ymd) return "";
+    const m = String(ymd).match(/(\d{4})[-\/](\d{2})[-\/](\d{2})/);
+    if(!m) return String(ymd);
+    return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+  function calcIdade(ymd){
+    const m = String(ymd||"").match(/(\d{4})-(\d{2})-(\d{2})/);
+    if(!m) return "";
+    const y=+m[1], mo=+m[2]-1, d=+m[3];
+    const dob=new Date(y,mo,d);
+    const now=new Date();
+    let age = now.getFullYear()-dob.getFullYear();
+    const md = now.getMonth()-dob.getMonth();
+    if(md<0 || (md===0 && now.getDate()<dob.getDate())) age--;
+    return String(age);
+  }
+</script>
 </head>
 
 <body>
@@ -173,374 +205,281 @@
   </div>
 
 <script>
-/* ===== util ===== */
-function pad2(n){ return String(n).padStart(2,"0"); }
-function ymd(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
-function ymdToBr(s){
-  if (!s) return "";
-  const m = String(s).match(/(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
-}
-function nextSunday(d){
-  const x = new Date(d);
-  const dow = x.getDay();
-  const add = (7 - dow) % 7;
-  x.setDate(x.getDate() + add);
-  x.setHours(0,0,0,0);
-  return x;
-}
+// =====================
+// TESOURA - PRESENÇA / ESCALAÇÃO (FIX)
+// =====================
+function $(id){ return document.getElementById(id); }
 
-/* ===== API ===== */
-const API = "/api/presenca_escalacao";
-
-async function jget(url){
-  const r = await fetch(url, { cache: "no-store" });
-  const t = await r.text();
-  let j;
-  try { j = JSON.parse(t); } catch { j = { ok:false, error:`Resposta nao-JSON: ${t.slice(0,160)}` }; }
-  if (!r.ok) throw new Error(j.error || `${r.status} ${r.statusText}`);
-  if (!j.ok) throw new Error(j.error || "erro");
-  return j;
-}
-
-async function jpost(url, body){
-  const r = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body||{}) });
-  const t = await r.text();
-  let j;
-  try { j = JSON.parse(t); } catch { j = { ok:false, error:`Resposta nao-JSON: ${t.slice(0,160)}` }; }
-  if (!r.ok) throw new Error(j.error || `${r.status} ${r.statusText}`);
-  if (!j.ok) throw new Error(j.error || "erro");
-  return j;
-}
-
-/* ===== state ===== */
-let STATE = null;
-
-function nowLocalISO(){
+function nextSundayYMD(){
   const d = new Date();
-  const tz = -d.getTimezoneOffset();
-  const sgn = tz >= 0 ? "+" : "-";
-  const hh = pad2(Math.floor(Math.abs(tz)/60));
-  const mm = pad2(Math.abs(tz)%60);
-  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}${sgn}${hh}:${mm}`;
+  const day = d.getDay(); // 0 domingo
+  const add = (7 - day) % 7;
+  const s = new Date(d.getFullYear(), d.getMonth(), d.getDate() + add);
+  const y = s.getFullYear();
+  const m = String(s.getMonth()+1).padStart(2,"0");
+  const da = String(s.getDate()).padStart(2,"0");
+  return `${y}-${m}-${da}`;
 }
 
-function setClock(){
-  const d = new Date();
-  const hhmm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  const el1 = document.getElementById("agora-1t");
-  const el2 = document.getElementById("agora-2t");
-  const elTop = document.getElementById("hora-top-val");
-  if (el1) el1.textContent = `Hora agora: ${hhmm}`;
-  if (el2) el2.textContent = `Hora agora: ${hhmm}`;
-  if (elTop) elTop.textContent = hhmm;
-}
-
-function setMsgOk(txt){
-  const el = document.getElementById("msg");
+function showClock(){
+  const el = $("hora_agora");
   if (!el) return;
-  el.innerHTML = `<span style="color:#22c55e;font-weight:bold">OK:</span> ${txt}`;
-}
-
-function setMsgErr(txt){
-  const el = document.getElementById("msg");
-  if (!el) return;
-  el.innerHTML = `<span style="color:#ef4444;font-weight:bold">ERRO:</span> ${txt}`;
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,"0");
+  const mm = String(now.getMinutes()).padStart(2,"0");
+  el.textContent = `${hh}:${mm}`;
 }
 
 function getDataDomingo(){
-  const el = document.getElementById("data_domingo");
-  const s = (el && el.value ? el.value : "").trim();
-  if (s) return s;
-  return ymd(nextSunday(new Date()));
+  const inp = $("data_jogo");
+  return (inp?.value || "").trim();
 }
 
-function idMapByApelido(){
-  const m = new Map();
-  const jogadores = (STATE && STATE.jogadores) ? STATE.jogadores : [];
-  jogadores.forEach(j => m.set(String(j.apelido||""), j.id));
-  return m;
-}
-
-function saiuMap(){
-  const m = new Map();
-  const pres = (STATE && (STATE.presencas || STATE.presenca)) ? (STATE.presencas || STATE.presenca) : [];
-  pres.forEach(p => m.set(String(p.apelido||""), !!p.saiu));
-  return m;
-}
-
-function chooseN(total){
-  if (total >= 20) return 10;
-  if (total >= 18) return 9;
-  return 8;
-}
-
-async function loadAll(){
-  try {
-    setClock();
-    const data_domingo = getDataDomingo();
-    document.getElementById("data_domingo").value = data_domingo;
-    document.getElementById("data_br").value = ymdToBr(data_domingo);
-
-    const url = `${API}/state?data_domingo=${encodeURIComponent(data_domingo)}&now_local=${encodeURIComponent(nowLocalISO())}`;
-    const j = await jget(url);
-    STATE = j;
-
-    const pres = (j.presencas || j.presenca || []);
-    document.getElementById("presentesCount").textContent = `Presentes hoje: ${pres.length}`;
-
-    renderJogadores();
-    renderPresencas();
-    renderEscalacao("1T");
-    renderEscalacao("2T");
-
-    setMsgOk(`lista carregada. (Domingo: ${data_domingo})`);
-  } catch(e){
-    setMsgErr(String(e.message || e));
+async function postJson(url, body){
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(body||{}),
+  });
+  const text = await resp.text();
+  let data=null; try{ data=JSON.parse(text);}catch(_){}
+  if (!resp.ok){
+    const msg = data?.error ? String(data.error) : (text || `HTTP ${resp.status}`);
+    throw new Error(msg);
   }
+  return data;
 }
 
-function renderJogadores(){
-  const tbody = document.getElementById("tbodyJogadores");
-  tbody.innerHTML = "";
-  const jogadores = (STATE && STATE.jogadores) ? STATE.jogadores : [];
-
-  jogadores.forEach(j => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td style="width:60px">${j.id||""}</td>
-      <td>${j.apelido||""}</td>
-      <td style="width:140px"><button class="btn-primario" data-id="${j.id}">CHEGOU AGORA</button></td>
-    `;
-    tr.querySelector("button").addEventListener("click", async () => {
-      try {
-        const data_domingo = getDataDomingo();
-        await jpost(`${API}/chegou`, { id: j.id, data_domingo, now_local: nowLocalISO() });
-        await loadAll();
-      } catch(e){ setMsgErr(String(e.message||e)); }
-    });
-    tbody.appendChild(tr);
-  });
-
-  document.getElementById("totalJogadores").textContent = `TOTAL DE JOGADORES: ${jogadores.length}`;
-}
-
-function renderPresencas(){
-  const tbody = document.getElementById("tbodyPresenca");
-  tbody.innerHTML = "";
-  const pres = (STATE && (STATE.presencas || STATE.presenca)) ? (STATE.presencas || STATE.presenca) : [];
-
-  pres.forEach(p => {
-    const nao = !!p.nao_joga;
-    const tr = document.createElement("tr");
-    if (nao) tr.style.opacity = "0.75";
-    tr.innerHTML = `
-      <td style="width:60px">${p.id||""}</td>
-      <td style="width:70px">${p.ordem||""}</td>
-      <td>${p.apelido||""}</td>
-      <td style="width:80px">${p.hora||""}</td>
-      <td>${p.obs||""}</td>
-      <td style="width:170px"><button class="btn-neutro" data-id="${p.id}">${nao ? "NÃO JOGA" : "NÃO VAI JOGAR"}</button></td>
-      <td style="width:110px"><button class="btn-excluir" data-id="${p.id}">EXCLUIR</button></td>
-    `;
-
-    const btnNJ = tr.querySelectorAll("button")[0];
-    const btnEX = tr.querySelectorAll("button")[1];
-
-    btnNJ.addEventListener("click", async () => {
-      try {
-        const data_domingo = getDataDomingo();
-        await jpost(`${API}/toggle_nao_joga`, { id: p.id, data_domingo });
-        await loadAll();
-      } catch(e){ setMsgErr(String(e.message||e)); }
-    });
-
-    btnEX.addEventListener("click", async () => {
-      try {
-        const data_domingo = getDataDomingo();
-        await jpost(`${API}/remove`, { id: p.id, data_domingo });
-        await loadAll();
-      } catch(e){ setMsgErr(String(e.message||e)); }
-    });
-
-    tbody.appendChild(tr);
-  });
-}
-
-function renderEscalacao(tempo){
-  const tbody = document.getElementById(tempo === "1T" ? "tbody-1t" : "tbody-2t");
-  tbody.innerHTML = "";
-
-  const idMap = idMapByApelido();
-  const saiu = saiuMap();
-
-  const arr = tempo === "1T" ? (STATE?.escalacao1 || []) : (STATE?.escalacao2 || []);
-  const amarelo = arr.filter(x => String(x.time||"").toUpperCase() === "AMARELO").sort((a,b)=>Number(a.pos||0)-Number(b.pos||0));
-  const azul = arr.filter(x => String(x.time||"").toUpperCase() === "AZUL").sort((a,b)=>Number(a.pos||0)-Number(b.pos||0));
-
-  const n = chooseN(amarelo.length + azul.length);
-
-  for (let i=1; i<=n; i++){
-    const a = amarelo[i-1];
-    const b = azul[i-1];
-    const aAp = a?.apelido || "";
-    const bAp = b?.apelido || "";
-
-    const tr = document.createElement("tr");
-
-    if (tempo === "1T"){
+async function loadJogadores(){
+  const tb = $("tbJogadores");
+  if (!tb) return;
+  tb.innerHTML = "";
+  try{
+    const data = await apiGetJson("/api/jogadores");
+    const lista = Array.isArray(data?.jogadores) ? data.jogadores : [];
+    lista.forEach(j => {
+      const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td style="width:60px">${aAp ? (idMap.get(aAp) || "") : ""}</td>
-        <td style="width:60px">${i}</td>
-        <td style="color:#fbbf24;font-weight:700">${aAp}</td>
-        <td style="width:70px">
-          <button class="btn-saiu" ${aAp?"":"disabled"} data-apelido="${aAp}">${saiu.get(aAp)?"SAIU":"SAIU"}</button>
-        </td>
-        <td style="color:#60a5fa;font-weight:700">${bAp}</td>
-        <td style="width:70px">
-          <button class="btn-saiu" ${bAp?"":"disabled"} data-apelido="${bAp}">${saiu.get(bAp)?"SAIU":"SAIU"}</button>
-        </td>
+        <td>${j.id ?? ""}</td>
+        <td style="color:#fff;font-weight:700">${j.apelido ?? ""}</td>
+        <td><button class="btnChegou" data-id="${j.id}">CHEGOU AGORA</button></td>
       `;
+      tb.appendChild(tr);
+    });
 
-      tr.querySelectorAll("button").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const ap = btn.getAttribute("data-apelido");
-          if (!ap) return;
-          try {
-            const data_domingo = getDataDomingo();
-            await jpost(`${API}/toggle_saiu`, { apelido: ap, data_domingo });
-            await loadAll();
-          } catch(e){ setMsgErr(String(e.message||e)); }
-        });
+    // bind chegou
+    const table = $("tblJogadores");
+    if (table && !table.__bound){
+      table.__bound = true;
+      table.addEventListener("click", async (ev) => {
+        const t = ev.target;
+        if (!(t instanceof HTMLElement)) return;
+        if (!t.classList.contains("btnChegou")) return;
+        const id = Number(t.getAttribute("data-id")||0);
+        const data_domingo = getDataDomingo();
+        if (!data_domingo) return alert("Defina a data do jogo.");
+        try{
+          await postJson("/api/presenca_escalacao/chegou", { id, data_domingo });
+          await loadState();
+        }catch(err){
+          alert("Erro (CHEGOU AGORA): " + (err?.message || err));
+        }
       });
-    } else {
-      tr.innerHTML = `
-        <td style="width:60px">${aAp ? (idMap.get(aAp) || "") : ""}</td>
-        <td style="width:60px">${i}</td>
-        <td style="color:#fbbf24;font-weight:700">${aAp}</td>
-        <td style="color:#60a5fa;font-weight:700">${bAp}</td>
-      `;
     }
-
-    tbody.appendChild(tr);
+  }catch(err){
+    alert("Falha ao carregar jogadores: " + (err?.message || err));
   }
 }
 
-/* ===== eventos ===== */
-document.getElementById("data_br").addEventListener("change", () => {
-  const v = document.getElementById("data_br").value.trim();
-  const m = v.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if (m) document.getElementById("data_domingo").value = `${m[3]}-${m[2]}-${m[1]}`;
-});
-
-document.getElementById("btn-limpar").addEventListener("click", async () => {
-  try {
-    const data_domingo = getDataDomingo();
-    await jpost(`${API}/limpar`, { data_domingo });
-    await loadAll();
-  } catch(e){ setMsgErr(String(e.message||e)); }
-});
-
-document.getElementById("btn-escalar-1t").addEventListener("click", async () => {
-  try {
-    const data_domingo = getDataDomingo();
-    await jpost(`${API}/escalar_1t`, { data_domingo, now_local: nowLocalISO() });
-    await loadAll();
-  } catch(e){ setMsgErr(String(e.message||e)); }
-});
-
-document.getElementById("btn-desfazer-1t").addEventListener("click", async () => {
-  try {
-    const data_domingo = getDataDomingo();
-    await jpost(`${API}/desfazer_1t`, { data_domingo });
-    await loadAll();
-  } catch(e){ setMsgErr(String(e.message||e)); }
-});
-
-document.getElementById("btn-escalar-2t").addEventListener("click", async () => {
-  try {
-    const data_domingo = getDataDomingo();
-    await jpost(`${API}/escalar_2t`, { data_domingo, now_local: nowLocalISO() });
-    await loadAll();
-  } catch(e){ setMsgErr(String(e.message||e)); }
-});
-
-document.getElementById("btn-desfazer-2t").addEventListener("click", async () => {
-  try {
-    const data_domingo = getDataDomingo();
-    await jpost(`${API}/desfazer_2t`, { data_domingo });
-    await loadAll();
-  } catch(e){ setMsgErr(String(e.message||e)); }
-});
-
-document.getElementById("btn-salvar").addEventListener("click", async () => {
-  try {
-    const data_domingo = getDataDomingo();
-    await jpost(`${API}/salvar`, { data_domingo });
-    setMsgOk("salvo");
-  } catch(e){ setMsgErr(String(e.message||e)); }
-});
-
-/* ===== PDF (arquivo real via API) ===== */
-async function downloadPdf(title, headCols, bodyRows, filename) {
-  // PDF real no navegador (sem print e sem API)
-  const { jsPDF } = window.jspdf || {};
-  if (!jsPDF) {
-    alert("Erro: biblioteca de PDF não carregou.");
-    return;
-  }
-  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-  doc.setFontSize(14);
-  doc.text(String(title || "TESOURA"), 40, 40);
-  doc.setFontSize(10);
-  doc.autoTable({
-    startY: 60,
-    head: [headCols],
-    body: bodyRows,
-    styles: { fontSize: 9, cellPadding: 3 },
-    headStyles: { fillColor: [255, 127, 0] },
+function renderPresencas(presencas){
+  const tb = $("tbPresenca");
+  if (!tb) return;
+  tb.innerHTML = "";
+  presencas.forEach(p => {
+    const tr = document.createElement("tr");
+    const checked = p.nao_joga ? "checked" : "";
+    tr.innerHTML = `
+      <td>${p.id ?? ""}</td>
+      <td>${p.ordem ?? ""}</td>
+      <td style="color:#fff;font-weight:700">${p.apelido ?? ""}</td>
+      <td>${p.hora ?? ""}</td>
+      <td>${p.obs ?? ""}</td>
+      <td><input type="checkbox" class="ckNao" data-id="${p.id}" ${checked}></td>
+      <td><button class="btnRem" data-id="${p.id}">EXCLUIR</button></td>
+    `;
+    tb.appendChild(tr);
   });
-  doc.save(filename || "tesoura.pdf");
+  $("presenca_count") && ($("presenca_count").textContent = String(presencas.length));
 }
 
-document.getElementById("btn-baixar-presenca").addEventListener("click", async () => {
-  try {
-    const data_domingo = getDataDomingo();
-    await downloadPdf(
-      `PRESENÇA - ${ymdToBr(data_domingo)}`,
-      ["ORDEM","APELIDO","HORA","OBS","NÃO VAI JOGAR"],
-      buildPresencaRows(),
-      `presenca_${data_domingo}.pdf`
-    );
-  } catch(e){ setMsgErr(String(e.message||e)); }
-});
+function renderEscalacao(tbId, lista, tempo){
+  const tb = $(tbId);
+  if (!tb) return;
+  tb.innerHTML = "";
+  lista.forEach(e => {
+    const tr = document.createElement("tr");
+    const saiu = e.saiu ? "✅" : "";
+    tr.innerHTML = `
+      <td>${e.id ?? ""}</td>
+      <td>${e.pos ?? ""}</td>
+      <td style="color:#fff;font-weight:700">${e.amarelo ?? ""}</td>
+      <td><button class="btnSaiu" data-id="${e.id}" data-tempo="${tempo}">SAIU</button> ${saiu}</td>
+      <td style="color:#fff;font-weight:700">${e.azul ?? ""}</td>
+      <td><button class="btnSaiu" data-id="${e.id}" data-tempo="${tempo}">SAIU</button> ${saiu}</td>
+    `;
+    tb.appendChild(tr);
+  });
+}
 
-document.getElementById("btn-baixar-1t").addEventListener("click", async () => {
-  try {
-    const data_domingo = getDataDomingo();
-    await downloadPdf(
-      `ESCALAÇÃO 1º TEMPO - ${ymdToBr(data_domingo)}`,
-      ["POS","AMARELO","AZUL"],
-      buildEscalacaoRows("1T"),
-      `escalacao_1T_${data_domingo}.pdf`
-    );
-  } catch(e){ setMsgErr(String(e.message||e)); }
-});
+async function loadState(){
+  const data_domingo = getDataDomingo();
+  if (!data_domingo) return;
+  try{
+    const st = await apiGetJson(`/api/presenca_escalacao/state?data_domingo=${encodeURIComponent(data_domingo)}`);
+    const presencas = Array.isArray(st?.presencas) ? st.presencas : [];
+    const esc1 = Array.isArray(st?.escalacao1) ? st.escalacao1 : [];
+    const esc2 = Array.isArray(st?.escalacao2) ? st.escalacao2 : [];
+    renderPresencas(presencas);
+    renderEscalacao("tb1t", esc1, "1T");
+    renderEscalacao("tb2t", esc2, "2T");
+    $("status_presenca") && ($("status_presenca").textContent = `Lista carregada. (Domingo: ${data_domingo})`);
+  }catch(err){
+    $("status_presenca") && ($("status_presenca").textContent = "Erro ao carregar lista.");
+    alert("Falha ao carregar presença: " + (err?.message || err));
+  }
+}
 
-document.getElementById("btn-baixar-2t").addEventListener("click", async () => {
-  try {
-    const data_domingo = getDataDomingo();
-    await downloadPdf(
-      `ESCALAÇÃO 2º TEMPO - ${ymdToBr(data_domingo)}`,
-      ["POS","AMARELO","AZUL"],
-      buildEscalacaoRows("2T"),
-      `escalacao_2T_${data_domingo}.pdf`
-    );
-  } catch(e){ setMsgErr(String(e.message||e)); }
-});
+async function onLimpar(){
+  const data_domingo = getDataDomingo();
+  if (!data_domingo) return;
+  if (!confirm("Limpar a lista de hoje?")) return;
+  try{
+    await postJson("/api/presenca_escalacao/limpar", { data_domingo });
+    await loadState();
+  }catch(err){
+    alert("Erro ao limpar: " + (err?.message || err));
+  }
+}
 
-setInterval(setClock, 1000);
-loadAll();
+async function onEscalar(tempo){
+  const data_domingo = getDataDomingo();
+  if (!data_domingo) return;
+  try{
+    await postJson("/api/presenca_escalacao/escalar", { data_domingo, tempo });
+    await loadState();
+  }catch(err){
+    alert(`Erro ao escalar ${tempo}: ` + (err?.message || err));
+  }
+}
+
+async function onDesfazer(tempo){
+  const data_domingo = getDataDomingo();
+  if (!data_domingo) return;
+  try{
+    await postJson("/api/presenca_escalacao/desfazer", { data_domingo, tempo });
+    await loadState();
+  }catch(err){
+    alert(`Erro ao desfazer ${tempo}: ` + (err?.message || err));
+  }
+}
+
+async function onSalvar(){
+  const data_domingo = getDataDomingo();
+  if (!data_domingo) return;
+  try{
+    await postJson("/api/presenca_escalacao/salvar", { data_domingo });
+    alert("SALVO no Banco de Dados.");
+  }catch(err){
+    alert("Erro ao salvar: " + (err?.message || err));
+  }
+}
+
+function bindPresenceTableActions(){
+  const tbl = $("tblPresenca");
+  if (!tbl || tbl.__bound) return;
+  tbl.__bound = true;
+
+  tbl.addEventListener("click", async (ev) => {
+    const t = ev.target;
+    if (!(t instanceof HTMLElement)) return;
+    const id = Number(t.getAttribute("data-id")||0);
+    const data_domingo = getDataDomingo();
+    if (!data_domingo) return;
+
+    if (t.classList.contains("btnRem")){
+      if (!confirm("Excluir da lista?")) return;
+      try{
+        await postJson("/api/presenca_escalacao/remover", { id, data_domingo });
+        await loadState();
+      }catch(err){
+        alert("Erro ao excluir: " + (err?.message || err));
+      }
+    }
+  });
+
+  tbl.addEventListener("change", async (ev) => {
+    const t = ev.target;
+    if (!(t instanceof HTMLElement)) return;
+    if (!t.classList.contains("ckNao")) return;
+    const id = Number(t.getAttribute("data-id")||0);
+    const data_domingo = getDataDomingo();
+    const nao_joga = t.checked;
+    try{
+      await postJson("/api/presenca_escalacao/toggle_nao_joga", { id, data_domingo, nao_joga });
+      await loadState();
+    }catch(err){
+      alert("Erro (não vai jogar): " + (err?.message || err));
+    }
+  });
+}
+
+function bindEscalacaoActions(){
+  const box = document;
+  if (box.__boundSaiu) return;
+  box.__boundSaiu = true;
+
+  document.addEventListener("click", async (ev) => {
+    const t = ev.target;
+    if (!(t instanceof HTMLElement)) return;
+    if (!t.classList.contains("btnSaiu")) return;
+    const id = Number(t.getAttribute("data-id")||0);
+    const tempo = String(t.getAttribute("data-tempo")||"");
+    const data_domingo = getDataDomingo();
+    if (!data_domingo) return;
+    try{
+      await postJson("/api/presenca_escalacao/toggle_saiu", { id, data_domingo, tempo });
+      await loadState();
+    }catch(err){
+      alert("Erro (saiu): " + (err?.message || err));
+    }
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // data default
+  const inp = $("data_jogo");
+  if (inp && !inp.value) inp.value = nextSundayYMD();
+
+  // clock
+  showClock();
+  setInterval(showClock, 5000);
+
+  // binds
+  $("btnLimparHoje")?.addEventListener("click", onLimpar);
+  $("btnEscalar1T")?.addEventListener("click", () => onEscalar("1T"));
+  $("btnDesfazer1T")?.addEventListener("click", () => onDesfazer("1T"));
+  $("btnEscalar2T")?.addEventListener("click", () => onEscalar("2T"));
+  $("btnDesfazer2T")?.addEventListener("click", () => onDesfazer("2T"));
+  $("btnSalvar")?.addEventListener("click", onSalvar);
+
+  $("data_jogo")?.addEventListener("change", async () => { await loadState(); });
+
+  bindPresenceTableActions();
+  bindEscalacaoActions();
+
+  loadJogadores();
+  loadState();
+});
 </script>
 
 </body>

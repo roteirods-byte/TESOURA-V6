@@ -533,6 +533,38 @@ th, td{
 
 </style>
   <script src="./html2pdf.bundle.min.js"></script>
+<script>
+  // Helpers (defensivos)
+  async function apiGetJson(url) {
+    const resp = await fetch(url, { cache: "no-store" });
+    const text = await resp.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch (_) {}
+    if (!resp.ok) {
+      const msg = data?.error ? String(data.error) : (text || `HTTP ${resp.status}`);
+      throw new Error(msg);
+    }
+    return data;
+  }
+  function byId(id){ return document.getElementById(id); }
+  function ymdToBr(ymd){
+    if(!ymd) return "";
+    const m = String(ymd).match(/(\d{4})[-\/](\d{2})[-\/](\d{2})/);
+    if(!m) return String(ymd);
+    return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+  function calcIdade(ymd){
+    const m = String(ymd||"").match(/(\d{4})-(\d{2})-(\d{2})/);
+    if(!m) return "";
+    const y=+m[1], mo=+m[2]-1, d=+m[3];
+    const dob=new Date(y,mo,d);
+    const now=new Date();
+    let age = now.getFullYear()-dob.getFullYear();
+    const md = now.getMonth()-dob.getMonth();
+    if(md<0 || (md===0 && now.getDate()<dob.getDate())) age--;
+    return String(age);
+  }
+</script>
 </head>
 
 <body>
@@ -668,571 +700,187 @@ th, td{
   </div>
 
   <script>
-    // ===== API (tenta manter compatível) =====
-    const API_BASES = [
-      "/api/jogadores",
-      "/api/jogadores/",
-    ];
+// =====================
+// TESOURA - JOGADORES (FIX)
+// =====================
+let EDIT_APELIDO = null;
 
-    
-      // ===== FIX ETAPA 2: subir para o cadastro ao clicar EDITAR =====
-      function scrollParaCadastro(){
-        // alvo preferido: primeira linha do cadastro
-        const alvo =
-          document.getElementById("camisa") ||
-          document.querySelector(".form-grid") ||
-          document.querySelector("#status");
+function $(id){ return document.getElementById(id); }
 
-        if(!alvo){
-          window.scrollTo({ top: 0, behavior: "smooth" });
-          return;
-        }
+function showStatus(msg, ok=true){
+  const el = $("status");
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = ok ? "#00d38a" : "#ff5c5c";
+}
 
-        // 1) tenta scroll padrão (funciona em muitos casos, inclusive dentro de iframe)
-        try{
-          alvo.scrollIntoView({ behavior:"smooth", block:"start" });
-        }catch(e){
-          // ignore
-        }
+function clearForm(){
+  EDIT_APELIDO = null;
+  ["camisa","nome","apelido","nascimento","celular"].forEach(id => { if($(id)) $(id).value=""; });
+  ["posicao","hab","vel","mov","pontos"].forEach(id => { if($(id)) $(id).value=""; });
+}
 
-        // 2) fallback: sobe o primeiro container rolável (quando o painel tem scroll interno)
-        let el = alvo;
-        while(el && el !== document.body){
-          const st = window.getComputedStyle(el);
-          const oy = st.overflowY;
-          if((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight + 5){
-            try{ el.scrollTo({ top: 0, behavior: "smooth" }); }catch(e){}
-            break;
-          }
-          el = el.parentElement;
-        }
+function getFormData(){
+  return {
+    camisa: ($("camisa")?.value || "").trim(),
+    nome: ($("nome")?.value || "").trim(),
+    apelido: ($("apelido")?.value || "").trim(),
+    nascimento: ($("nascimento")?.value || "").trim(),
+    celular: ($("celular")?.value || "").trim(),
+    posicao: ($("posicao")?.value || "").trim(),
+    hab: Number($("hab")?.value || 0),
+    vel: Number($("vel")?.value || 0),
+    mov: Number($("mov")?.value || 0),
+    pontos: Number($("pontos")?.value || 0),
+  };
+}
 
-        // 3) último fallback: topo da página do painel
-        try{ window.scrollTo({ top: 0, behavior: "smooth" }); }catch(e){}
-      }
-function setStatusOk(msg){
-      const el = document.getElementById("status");
-      el.className = "status ok";
-      el.textContent = msg;
-    }
-    function setStatusErr(msg){
-      const el = document.getElementById("status");
-      el.className = "status err";
-      el.textContent = msg;
-    }
+function renderAniversariantes(lista){
+  const box = $("aniversariantes");
+  if (!box) return;
+  const mes = new Date().getMonth() + 1;
+  const anivs = lista.filter(j => String(j.nascimento||"").match(/^\d{4}-(\d{2})-\d{2}$/) && Number(RegExp.$1) === mes);
+  box.textContent = anivs.length ? anivs.map(j => `${j.apelido} (${ymdToBr(j.nascimento)})`).join(" • ") : "Nenhum aniversariante neste mês.";
+}
 
-    function onlyDigits(s){ return (s||"").replace(/\D+/g,""); }
+function renderTabela(lista){
+  const tbody = $("tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  lista.forEach((j, idx) => {
+    const nascimento = j.nascimento || "";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${j.ordem ?? (idx+1)}</td>
+      <td>${j.camisa ?? ""}</td>
+      <td style="color:#fff;font-weight:700">${j.apelido ?? ""}</td>
+      <td>${j.nome ?? ""}</td>
+      <td>${ymdToBr(nascimento)}</td>
+      <td>${calcIdade(nascimento)}</td>
+      <td>${j.celular ?? ""}</td>
+      <td>${j.posicao ?? ""}</td>
+      <td>${j.hab ?? ""}</td>
+      <td>${j.vel ?? ""}</td>
+      <td>${j.mov ?? ""}</td>
+      <td>${j.pontos ?? 0}</td>
+      <td><button class="btn-edit" data-apelido="${encodeURIComponent(j.apelido||"")}">EDITAR</button></td>
+      <td><button class="btn-del" data-apelido="${encodeURIComponent(j.apelido||"")}">EXCLUIR</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  const total = $("total");
+  if (total) total.textContent = String(lista.length);
+}
 
-    function calcIdade(yyyy_mm_dd){
-      if(!yyyy_mm_dd || yyyy_mm_dd.length < 10) return "";
-      const [y,m,d] = yyyy_mm_dd.split("-").map(Number);
-      if(!y||!m||!d) return "";
-      const birth = new Date(y, m-1, d);
-      const today = new Date();
-      let age = today.getFullYear() - birth.getFullYear();
-      const mm = today.getMonth() - birth.getMonth();
-      if (mm < 0 || (mm === 0 && today.getDate() < birth.getDate())) age--;
-      return String(age);
-    }
+async function loadList(){
+  try{
+    const data = await apiGetJson("/api/jogadores");
+    const lista = Array.isArray(data?.jogadores) ? data.jogadores : [];
+    renderTabela(lista);
+    renderAniversariantes(lista);
+    showStatus("OK: lista carregada", true);
+  }catch(err){
+    showStatus("ERRO ao carregar lista", false);
+    alert("Falha ao carregar jogadores: " + (err?.message || err));
+  }
+}
 
-    async function apiFetch(path, opts={}){
-      let lastErr = null;
-      for(const base of API_BASES){
-        try{
-          const url = base.endsWith("/") ? (base + path.replace(/^\//,"")) : (base + path);
-          const res = await fetch(url, opts);
-          if(res.status === 404){
-            lastErr = new Error("404 em " + url);
-            continue;
-          }
-          return res;
-        }catch(e){
-          lastErr = e;
-        }
-      }
-      throw lastErr || new Error("Falha na API");
-    }
-
-    async function loadList(){
-      const res = await apiFetch("", { cache:"no-store" });
-      if(!res.ok){
-        const txt = await res.text().catch(()=> "");
-        throw new Error("Erro ao carregar lista: " + res.status + " " + txt);
-      }
-      const data = await res.json();
-      // aceita formatos comuns:
-      // 1) {lista:[...]}
-      // 2) [...]
-      const lista = Array.isArray(data) ? data : (data.lista || data.jogadores || []);
-      renderList(lista);
-      renderBdays(lista);
-      document.getElementById("total").textContent = "TOTAL DE JOGADORES: " + lista.length;
-      setStatusOk("OK: lista carregada");
-      return lista;
-    }
-
-    function normPos(v){
-      v = (v||"").trim().toUpperCase();
-      if(!v) return "";
-      const one = v[0];
-      return one;
-    }
-
-    function getForm(){
-      const camisa = onlyDigits(document.getElementById("camisa").value.trim());
-      const nome = document.getElementById("nome").value.trim();
-      const apelido = document.getElementById("apelido").value.trim();
-      const nascimento = document.getElementById("nascimento").value.trim();
-      const celular = document.getElementById("celular").value.trim();
-      const posicao = normPos(document.getElementById("posicao").value);
-      const hab = onlyDigits(document.getElementById("hab").value.trim());
-      const vel = onlyDigits(document.getElementById("vel").value.trim());
-      const mov = onlyDigits(document.getElementById("mov").value.trim());
-      const pontos = onlyDigits(document.getElementById("pontos").value.trim()) || "0";
-
-      return { camisa, nome, apelido, nascimento, celular, posicao, hab, vel, mov, pontos };
-    }
-
-    function clearForm(){
-      ["camisa","nome","apelido","nascimento","celular","posicao","hab","vel","mov","pontos"].forEach(id=>{
-        document.getElementById(id).value = "";
+async function onSave(){
+  const payload = getFormData();
+  if (!payload.apelido){
+    alert("Preencha o APELIDO.");
+    return;
+  }
+  try{
+    if (EDIT_APELIDO){
+      // Atualiza pelo apelido original
+      const resp = await fetch(`/api/jogadores/${encodeURIComponent(EDIT_APELIDO)}`, {
+        method: "PUT",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload),
       });
-      document.getElementById("pontos").value = "0";
+      const tx = await resp.text();
+      if (!resp.ok) throw new Error(tx);
+    } else {
+      const resp = await fetch("/api/jogadores", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload),
+      });
+      const tx = await resp.text();
+      if (!resp.ok) throw new Error(tx);
     }
+    clearForm();
+    await loadList();
+  }catch(err){
+    alert("Erro ao salvar: " + (err?.message || err));
+  }
+}
 
-    // ===== RENDER =====
-    function renderList(lista){
-      // ordena por apelido (como no modelo)
-      const rows = [...lista].sort((a,b)=>{
-        const aa = (a.apelido||"").toUpperCase();
-        const bb = (b.apelido||"").toUpperCase();
-        return aa.localeCompare(bb);
-      });
+async function onDelete(apelido){
+  if (!apelido) return;
+  if (!confirm(`Excluir ${apelido}?`)) return;
+  try{
+    const resp = await fetch(`/api/jogadores/${encodeURIComponent(apelido)}`, { method: "DELETE" });
+    const tx = await resp.text();
+    if (!resp.ok) throw new Error(tx);
+    await loadList();
+  }catch(err){
+    alert("Erro ao excluir: " + (err?.message || err));
+  }
+}
 
-      const tbody = document.getElementById("tbody");
-      tbody.innerHTML = "";
+function onEditFromRow(row){
+  EDIT_APELIDO = row.apelido;
+  $("camisa") && ($("camisa").value = row.camisa ?? "");
+  $("nome") && ($("nome").value = row.nome ?? "");
+  $("apelido") && ($("apelido").value = row.apelido ?? "");
+  $("nascimento") && ($("nascimento").value = row.nascimento ?? "");
+  $("celular") && ($("celular").value = row.celular ?? "");
+  $("posicao") && ($("posicao").value = row.posicao ?? "");
+  $("hab") && ($("hab").value = row.hab ?? "");
+  $("vel") && ($("vel").value = row.vel ?? "");
+  $("mov") && ($("mov").value = row.mov ?? "");
+  $("pontos") && ($("pontos").value = row.pontos ?? 0);
+  showStatus("Editando: " + (row.apelido||""), true);
+}
 
-      rows.forEach((p, idx)=>{
-        const tr = document.createElement("tr");
+// Delegação de cliques na tabela
+function bindTableActions(){
+  const table = $("tbl");
+  if (!table || table.__bound) return;
+  table.__bound = true;
 
-        const id = p.id ?? p.ID ?? p._id ?? null;
-        const camisa = p.camisa ?? "";
-        const apelido = p.apelido ?? "";
-        const nome = p.nome ?? "";
-        const nascimento = (p.nascimento ?? p.nasc ?? p.data_nasc ?? "").toString();
-        const idade = calcIdade(nascimento);
-        const celular = p.celular ?? "";
-        const posicao = (p.posicao ?? p.pos ?? "").toString();
-        const hab = (p.hab ?? "").toString();
-        const vel = (p.vel ?? "").toString();
-        const mov = (p.mov ?? "").toString();
-        const pontos = (p.pontos ?? "0").toString();
-
-        tr.innerHTML = `
-          <td class="center">${idx+1}</td>
-          <td class="center">${camisa}</td>
-          <td>${apelido}</td>
-          <td>${nome}</td>
-          <td class="center">${nascimento}</td>
-          <td class="center">${idade}</td>
-          <td>${celular}</td>
-          <td class="center">${posicao}</td>
-          <td class="center">${hab}</td>
-          <td class="center">${vel}</td>
-          <td class="center">${mov}</td>
-          <td class="center">${pontos}</td>
-          <td class="center"><button class="btn-mini btn-edit" data-edit="${encodeURIComponent(apelido)}">EDITAR</button></td>
-          <td class="center"><button class="btn-mini btn-del" data-del="${encodeURIComponent(apelido)}">EXCLUIR</button></td>
-        `;
-        tbody.appendChild(tr);
-
-        // guarda ID se existir
-        tr.dataset.id = (id !== null && id !== undefined) ? String(id) : "";
-        tr.dataset.apelido = apelido;
-      });
-
-      // ações
-      tbody.querySelectorAll("[data-edit]").forEach(btn=>{
-        btn.addEventListener("click", ()=>{
-          const ap = decodeURIComponent(btn.getAttribute("data-edit"));
-          const row = [...tbody.querySelectorAll("tr")].find(r => (r.dataset.apelido||"") === ap);
-          if(!row) return;
-          // preenche form pelo texto da linha (simples e estável)
-          const tds = row.querySelectorAll("td");
-          document.getElementById("camisa").value = tds[1].textContent.trim();
-          document.getElementById("apelido").value = tds[2].textContent.trim();
-          document.getElementById("nome").value = tds[3].textContent.trim();
-          document.getElementById("nascimento").value = tds[4].textContent.trim();
-          document.getElementById("celular").value = tds[6].textContent.trim();
-          document.getElementById("posicao").value = (tds[7].textContent.trim() || "").toUpperCase();
-          document.getElementById("hab").value = tds[8].textContent.trim();
-          document.getElementById("vel").value = tds[9].textContent.trim();
-          document.getElementById("mov").value = tds[10].textContent.trim();
-          document.getElementById("pontos").value = tds[11].textContent.trim() || "0";
-          setStatusOk("Editando: " + ap);
-          // marca edição pelo apelido (mais compatível)
-          document.getElementById("btnSalvar").dataset.edit = ap;
-                  scrollParaCadastro();
-});
-      });
-
-      tbody.querySelectorAll("[data-del]").forEach(btn=>{
-        btn.addEventListener("click", async ()=>{
-          const ap = decodeURIComponent(btn.getAttribute("data-del"));
-          if(!confirm("Excluir jogador: " + ap + " ?")) return;
-          try{
-            setStatusOk("Excluindo...");
-            // tenta por apelido
-            const res = await apiFetch("/" + encodeURIComponent(ap), { method:"DELETE" });
-            if(!res.ok){
-              const txt = await res.text().catch(()=> "");
-              throw new Error("Falha ao excluir: " + res.status + " " + txt);
-            }
-            await loadList();
-            setStatusOk("Excluído: " + ap);
-          }catch(e){
-            setStatusErr(String(e.message||e));
-          }
-        });
-      });
+  table.addEventListener("click", async (ev) => {
+    const t = ev.target;
+    if (!(t instanceof HTMLElement)) return;
+    if (t.classList.contains("btn-del")){
+      const apelido = decodeURIComponent(t.getAttribute("data-apelido")||"");
+      await onDelete(apelido);
     }
-
-    function renderBdays(lista){
-      const now = new Date();
-      const month = now.getMonth() + 1;
-      const year = now.getFullYear();
-
-      const itens = (lista||[])
-        .map(p=>{
-          const apelido = (p.apelido||"").toString();
-          const nascimento = (p.nascimento ?? p.nasc ?? p.data_nasc ?? "").toString();
-          if(!nascimento || nascimento.length < 10) return null;
-          const [y,m,d] = nascimento.split("-").map(Number);
-          if(!m || !d) return null;
-          if(m !== month) return null;
-          const idade = calcIdade(nascimento);
-          return { apelido, dia: String(d).padStart(2,"0"), idade };
-        })
-        .filter(Boolean)
-        .sort((a,b)=> Number(a.dia)-Number(b.dia));
-
-      const title = document.getElementById("bdayTitle");
-      const months = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"];
-      title.textContent = `ANIVERSARIANTES DO MÊS - ${months[month-1]} / ${year}`;
-
-      const box = document.getElementById("bdayContent");
-      if(!itens.length){
-        box.innerHTML = `<div style="color:#9bb0d1;font-weight:900">Nenhum aniversariante neste mês.</div>`;
-        return;
-      }
-
-      let html = `
-        <table class="bday-table">
-          <thead>
-            <tr><th>APELIDO</th><th>DIA</th><th>IDADE</th></tr>
-          </thead>
-          <tbody>
-      `;
-      itens.forEach(x=>{
-        html += `<tr><td>${x.apelido}</td><td>${x.dia}</td><td>${x.idade}</td></tr>`;
-      });
-      html += `</tbody></table>`;
-      box.innerHTML = html;
-    }
-
-    // ===== SALVAR (cria/edita e sempre recarrega TOTAL) =====
-    async function salvar(){
+    if (t.classList.contains("btn-edit")){
+      const apelido = decodeURIComponent(t.getAttribute("data-apelido")||"");
+      // pega a linha atual da tabela já renderizada
+      // (recarrega lista e acha pelo apelido)
       try{
-        const f = getForm();
-
-        if(!f.apelido){
-          setStatusErr("ERRO: informe o APELIDO");
-          return;
-        }
-
-        // valida posição (sem goleiro)
-        if(f.posicao && !["Z","L","M","A"].includes(f.posicao)){
-          setStatusErr("ERRO: POSIÇÃO inválida (use Z/L/M/A)");
-          return;
-        }
-
-        setStatusOk("Salvando...");
-
-        const editApelido = (document.getElementById("btnSalvar").dataset.edit || "").trim();
-
-        const payload = {
-          camisa: f.camisa,
-          apelido: f.apelido,
-          nome: f.nome,
-          nascimento: f.nascimento,
-          celular: f.celular,
-          posicao: f.posicao,
-          hab: f.hab,
-          vel: f.vel,
-          mov: f.mov,
-          pontos: f.pontos
-        };
-
-        let res;
-        if(editApelido){
-          // update
-          res = await apiFetch("/" + encodeURIComponent(editApelido), {
-            method:"PUT",
-            headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify(payload)
-          });
-        }else{
-          // create
-          res = await apiFetch("", {
-            method:"POST",
-            headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify(payload)
-          });
-        }
-
-        if(!res.ok){
-          const txt = await res.text().catch(()=> "");
-          // Mostra erro real (ex: apelido duplicado)
-          throw new Error("Falha ao salvar: " + res.status + " " + txt);
-        }
-
-        // sempre recarrega lista pra atualizar TOTAL
-        await loadList();
-
-        // limpa modo edição
-        document.getElementById("btnSalvar").dataset.edit = "";
-        clearForm();
-        document.getElementById("pontos").value = "0";
-
-        setStatusOk("OK: salvo e lista atualizada");
-      }catch(e){
-        setStatusErr(String(e.message||e));
-      }
+        const data = await apiGetJson("/api/jogadores");
+        const lista = Array.isArray(data?.jogadores) ? data.jogadores : [];
+        const row = lista.find(x => String(x.apelido) === String(apelido));
+        if (row) onEditFromRow(row);
+      }catch(_){}
     }
-
-    // ===== INIT =====
-    document.getElementById("btnSalvar").addEventListener("click", salvar);
-    document.getElementById("btnLimpar").addEventListener("click", ()=>{
-      document.getElementById("btnSalvar").dataset.edit = "";
-      clearForm();
-      document.getElementById("pontos").value = "0";
-      setStatusOk("OK: limpo");
-    });
-    document.getElementById("btnPdf").addEventListener("click", ()=>baixarPdfTabela());
-
-    // força POSIÇÃO 1 letra maiúscula
-    document.getElementById("posicao").addEventListener("input", (e)=>{
-      e.target.value = (e.target.value || "").toUpperCase().slice(0,1);
-    });
-
-    // carrega
-    (async ()=>{
-      try{
-        await loadList();
-      }catch(e){
-        setStatusErr(String(e.message||e));
-      }
-    })();
-  
-// ===== PDF (gera arquivo e baixa) =====
-function _loadScriptOnce(id, src){
-  return new Promise((resolve, reject)=>{
-    if(document.getElementById(id)) return resolve();
-    const s = document.createElement("script");
-    s.id = id;
-    s.src = src;
-    s.async = true;
-    s.onload = ()=>resolve();
-    s.onerror = ()=>reject(new Error("Falha ao carregar: "+src));
-    document.head.appendChild(s);
   });
 }
 
-async function baixarPdfTabela(){
-    try{
-      setStatusOk("Gerando PDF...");
+document.addEventListener("DOMContentLoaded", () => {
+  // binds (defensivo)
+  $("btnSalvar")?.addEventListener("click", onSave);
+  $("btnLimpar")?.addEventListener("click", () => { clearForm(); showStatus("Form limpo", true); });
+  $("btnPdf")?.addEventListener("click", () => { window.print(); });
 
-      // carrega libs (PDF por tabela, nao print)
-      await _loadScriptOnce(
-        "jspdf-lib",
-        "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"
-      );
-      await _loadScriptOnce(
-        "jspdf-autotable",
-        "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"
-      );
-
-      const res = await apiFetch("", { cache:"no-store" });
-      if(!res.ok){
-        const txt = await res.text().catch(()=> "");
-        throw new Error("Erro ao carregar lista: " + res.status + " " + txt);
-      }
-      const data = await res.json();
-      const lista = Array.isArray(data) ? data : (data.lista || data.jogadores || []);
-
-      const pad = (n)=> String(n).padStart(2,"0");
-      const now = new Date();
-      const stamp = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-      const fname = `TESOURA-JOGADORES-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.pdf`;
-
-      const headers = [
-        "ORDEM","CAMISA","APELIDO","NOME","DATA NASC.","IDADE","CELULAR","POSIÇÃO","HAB","VEL","MOV","PONTOS"
-      ];
-
-      const rows = lista.map((p, idx)=>{
-        const nascimento = (p.nascimento ?? p.nasc ?? p.data_nasc ?? "").toString().slice(0,10);
-        const idade = calcIdade(nascimento);
-        const pos = (p.posicao ?? p.pos ?? "").toString().trim().toUpperCase().slice(0,1);
-        return [
-          String(idx+1),
-          String(p.camisa ?? ""),
-          String(p.apelido ?? ""),
-          String(p.nome ?? ""),
-          nascimento,
-          String(idade ?? ""),
-          String(p.celular ?? ""),
-          pos,
-          String(p.hab ?? ""),
-          String(p.vel ?? ""),
-          String(p.mov ?? ""),
-          String(p.pontos ?? "0"),
-        ];
-      });
-
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation:"landscape", unit:"mm", format:"a4" });
-
-      doc.setFontSize(12);
-      doc.text("TESOURA — LISTA DE JOGADORES", 14, 12);
-      doc.setFontSize(9);
-      doc.text(`Gerado em: ${stamp} | Total: ${lista.length}`, 14, 18);
-
-      doc.autoTable({
-        head: [headers],
-        body: rows,
-        startY: 22,
-        styles: { fontSize: 7, cellPadding: 1.5 },
-        headStyles: { fontSize: 7 },
-        margin: { left: 10, right: 10 },
-        tableWidth: "auto",
-      });
-
-      doc.save(fname);
-      setStatusOk("OK: PDF baixado (" + fname + ")");
-    }catch(e){
-      setStatusErr("ERRO PDF: " + String(e.message||e));
-    }
-  }
-
-
-// ===== R2 PDF (BAIXA ARQUIVO) + TABELA PRINCIPAL (sem barra horizontal) =====
-function marcarTabelaPrincipal(){
-  try{
-    const tables = Array.from(document.querySelectorAll("table"));
-    for(const t of tables){
-      const th = t.querySelector("thead th");
-      const first = (th ? th.textContent : "").toUpperCase();
-      if(first.includes("ORD")){ t.classList.add("tbl-main"); break; }
-    }
-  }catch(e){}
-}
-
-async function baixarPdf(){
-  try{
-    if(typeof html2pdf === "undefined"){
-      alert("PDF: biblioteca não carregou. Atualize com Ctrl+F5 e tente de novo.");
-      return;
-    }
-
-    // tenta pegar o container principal do painel
-    const root =
-      document.querySelector("#printArea") ||
-      document.querySelector(".container") ||
-      document.querySelector(".wrap") ||
-      document.querySelector("main") ||
-      document.body;
-
-    const now = new Date();
-    const pad = (n)=>String(n).padStart(2,"0");
-    const file = `TESOURA-JOGADORES-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.pdf`;
-
-    const opt = {
-      margin: [8,8,8,8],
-      filename: file,
-      image: { type: "jpeg", quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
-    };
-
-    await html2pdf().set(opt).from(root).save(); // <-- ISTO BAIXA O ARQUIVO
-  }catch(e){
-    console.error(e);
-    alert("Falha ao baixar PDF. Veja o console.");
-  }
-}
-
-// observa mudanças e marca a tabela quando ela aparecer/recarregar
-try{
-  const obs = new MutationObserver(()=>marcarTabelaPrincipal());
-  obs.observe(document.body, { childList:true, subtree:true });
-  setTimeout(marcarTabelaPrincipal, 500);
-}catch(e){}
-
-
-// ===== R3: marcar tabela principal (ORD...) como .tbl-main =====
-function marcarTabelaPrincipal(){
-  try{
-    const tables = Array.from(document.querySelectorAll("table"));
-    for(const t of tables){
-      const th = t.querySelector("thead th");
-      const first = (th ? th.textContent : "").toUpperCase();
-      if(first.includes("ORD")){
-        t.classList.add("tbl-main");
-        break;
-      }
-    }
-  }catch(e){}
-}
-try{
-  const obs = new MutationObserver(()=>marcarTabelaPrincipal());
-  obs.observe(document.body, { childList:true, subtree:true });
-  setTimeout(marcarTabelaPrincipal, 300);
-}catch(e){}
-
-
-// ===== R3 PDF: BAIXAR ARQUIVO (sem print) =====
-async function baixarPdf(){
-  try{
-    if(typeof html2pdf === "undefined"){
-      alert("PDF: biblioteca não carregou. Faça Ctrl+F5 e tente de novo.");
-      return;
-    }
-    const root =
-      document.querySelector("#printArea") ||
-      document.querySelector(".container") ||
-      document.querySelector(".wrap") ||
-      document.querySelector("main") ||
-      document.body;
-
-    const now = new Date();
-    const pad = (n)=>String(n).padStart(2,"0");
-    const file = `TESOURA-JOGADORES-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.pdf`;
-
-    const opt = {
-      margin: [8,8,8,8],
-      filename: file,
-      image: { type: "jpeg", quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
-    };
-
-    await html2pdf().set(opt).from(root).save(); // BAIXA o PDF
-  }catch(e){
-    console.error(e);
-    alert("Falha ao baixar PDF. Veja o console.");
-  }
-}
-
+  bindTableActions();
+  loadList();
+});
 </script>
 </body>
 </html>

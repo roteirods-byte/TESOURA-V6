@@ -16,7 +16,23 @@ const { saveSnapshot, listSnapshots, loadSnapshot } = require("./modules/_core/a
  */
 
 const PORT = Number(process.env.PORT || 8080);
-const DB_PATH = process.env.TESOURA_DB_PATH || path.resolve(__dirname, "tesoura.db");
+const DB_CANDIDATES = [
+  process.env.TESOURA_DB_PATH,
+  "/home/roteiro_ds/tesoura_api/tesoura.db",
+  path.resolve(__dirname, "tesoura.db"),
+].filter(Boolean);
+
+function pickExistingDbPath(candidates) {
+  for (const p of candidates) {
+    try {
+      fs.accessSync(p, fs.constants.R_OK);
+      return p;
+    } catch (_) {}
+  }
+  return candidates[0] || path.resolve(__dirname, "tesoura.db");
+}
+
+const DB_PATH = pickExistingDbPath(DB_CANDIDATES);
 
 const app = express();
 app.disable("x-powered-by");
