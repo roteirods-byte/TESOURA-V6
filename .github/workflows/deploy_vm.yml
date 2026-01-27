@@ -1,24 +1,47 @@
 name: Deploy TESOURA-V6 na VM (tesoura-sql)
 
 on:
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH (git reset + restart)
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Checkout (para obter hash)
+        uses: actions/checkout@v4
+
+      - name: Deploy por SSH (sem uso de SSH manual)
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.TESOURA_VM_HOST }}
           username: ${{ secrets.TESOURA_VM_USER }}
           key: ${{ secrets.TESOURA_VM_SSH_KEY }}
-          port: 22
           script: |
             set -e
-            cd /home/roteiro_ds/tesoura-v6
+            echo "=== DEPLOY TESOURA-V6 ==="
+            cd /home/${{ secrets.TESOURA_VM_USER }} || exit 1
+
+            if [ ! -d "tesoura-v6/.git" ]; then
+              rm -rf tesoura-v6
+              git clone https://github.com/${{ github.repository }}.git tesoura-v6
+            fi
+
+            cd tesoura-v6
             git fetch --all
             git reset --hard origin/main
+            echo "REV=$(git rev-parse --short HEAD)"
+            echo "REV: $(git rev-parse --short HEAD)"
+
+            echo "=== BACKEND ==="
+            cd backend
+            npm ci --omit=dev
             sudo systemctl restart tesoura-api.service
-            sudo nginx -s reload
-            echo "DEPLOY_OK"
+            sudo systemctl is-active --quiet tesoura-api.service && echo "tesoura-api: OK"
+
+            echo "=== NGINX ==="
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            echo "=== FIM ==="
