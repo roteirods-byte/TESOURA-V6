@@ -39,6 +39,7 @@ function pickExistingDbPath(candidates) {
 }
 
 const DB_PATH = pickExistingDbPath(DB_CANDIDATES);
+const db = new Database(DB_PATH);
 
 const app = express();
 app.disable("x-powered-by");
