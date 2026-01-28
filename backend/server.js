@@ -1,4 +1,10 @@
 'use strict';
+function dbPrepareAll(db, sql, paramsList = []) {
+  const stmt = db.prepare(sql);
+  const out = [];
+  for (const params of paramsList) out.push(stmt.all(params));
+  return out;
+}
 
 const fs = require("fs");
 const path = require("path");
